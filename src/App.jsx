@@ -1016,7 +1016,11 @@ export const checkSubscriptionActive = (user) => {
   return expiry > new Date();
 };
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Empty string fallback = relative URLs (same-origin). Works when Express serves both
+// the API and the frontend from the same Railway deployment.
+// Set VITE_API_URL only if your backend is on a different domain/port.
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 const FREE_COUPONS = ['LEMON', 'ADVVIDARBHA']; // 3 months free, single use per email
 const TESTER_COUPON = 'TESTER2024'; // Free access for testers
 
@@ -2366,7 +2370,7 @@ const PitchFireRegistration = ({ setPage, user }) => {
     e.preventDefault();
     setLoading('Sending Secure OTP to your email...');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/send-otp`, {
+      const res = await fetch(`${API_URL}/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -2388,7 +2392,7 @@ const PitchFireRegistration = ({ setPage, user }) => {
     e.preventDefault();
     setLoading('Verifying 2FA Code...');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/verify-otp`, {
+      const res = await fetch(`${API_URL}/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp })
@@ -2417,7 +2421,7 @@ const PitchFireRegistration = ({ setPage, user }) => {
 
     try {
       // 1. Create order on the backend
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/create-order`, {
+      const res = await fetch(`${API_URL}/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -2440,7 +2444,7 @@ const PitchFireRegistration = ({ setPage, user }) => {
           setLoading('Verifying payment & generating ticket...');
           try {
             // 2. Verify payment signature on the backend
-            const verifyRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/verify-payment`, {
+            const verifyRes = await fetch(`${API_URL}/verify-payment`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -2468,7 +2472,7 @@ const PitchFireRegistration = ({ setPage, user }) => {
               if (dbError) throw dbError;
 
               // 4. Send ticket details email
-              await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/send-ticket`, {
+              await fetch(`${API_URL}/send-ticket`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, ticketId: result, teamName: teamData.teamName })
@@ -2855,7 +2859,7 @@ export default function App() {
           const email = session.user.email;
           const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'User';
           
-          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/welcome-email`, {
+          fetch(`${API_URL}/welcome-email`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, fullName })
@@ -3318,7 +3322,7 @@ const AuthModal = ({ isOpen, initialMode, onClose }) => {
         if (error) throw error;
 
         // Send custom welcome email via backend
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/welcome-email`, {
+        fetch(`${API_URL}/welcome-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, fullName })

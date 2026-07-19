@@ -14,15 +14,41 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+// Log env var status on startup (no secret values exposed)
+console.log('ENV CHECK:', {
+  SUPABASE_URL: !!process.env.SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  RAZORPAY_KEY_ID: !!process.env.RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_SECRET: !!process.env.RAZORPAY_KEY_SECRET,
+  EMAIL_USER: !!process.env.EMAIL_USER,
+  PORT: process.env.PORT || 3001,
+});
+
 // Supabase admin client (service role — bypasses RLS)
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Guard against missing env vars to prevent crash on startup
+let supabaseAdmin = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  supabaseAdmin = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+} else {
+  console.error('WARNING: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set! Coupon routes will fail.');
+}
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    supabase: !!supabaseAdmin,
+    razorpay: !!process.env.RAZORPAY_KEY_ID,
+    email: !!process.env.EMAIL_USER,
+  });
+});
 
 // In-memory store for OTPs
 // Structure: { "email@example.com": { otp: "123456", expiresAt: 1714000000000 } }
@@ -225,6 +251,9 @@ app.post('/validate-coupon', async (req, res) => {
   if (!FREE_COUPONS.includes(code)) {
     return res.status(400).json({ success: false, error: 'Invalid coupon code.' });
   }
+  if (!supabaseAdmin) {
+    return res.status(503).json({ success: false, error: 'Server configuration error: Supabase not connected.' });
+  }
   const { data, error } = await supabaseAdmin
     .from('coupon_redemptions')
     .select('id')
@@ -248,6 +277,9 @@ app.post('/redeem-coupon', async (req, res) => {
   const code = coupon.toUpperCase();
   if (!FREE_COUPONS.includes(code)) {
     return res.status(400).json({ success: false, error: 'Invalid coupon code.' });
+  }
+  if (!supabaseAdmin) {
+    return res.status(503).json({ success: false, error: 'Server configuration error: Supabase not connected.' });
   }
   const key = email.toLowerCase();
   const { error } = await supabaseAdmin
