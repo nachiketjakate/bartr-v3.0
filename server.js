@@ -210,46 +210,55 @@ const SUBSCRIPTION_PLANS = {
   '1year': { name: '1 Year Pro', durationMonths: 12, originalPrice: 999, discountedPrice: 499 },
 };
 
-// NGP100 coupon — 1 month free, single use per email (persisted in Supabase)
+// Free coupons — 3 months free, single use per email (persisted in Supabase)
+const FREE_COUPONS = ['LEMON', 'ADVVIDARBHA'];
 
-// Validate NGP100 coupon (does NOT consume it — only checks)
-app.post('/validate-ngp100', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ success: false, error: 'Email required.' });
+// Validate free coupon (does NOT consume it — only checks)
+app.post('/validate-coupon', async (req, res) => {
+  const { email, coupon } = req.body;
+  if (!email || !coupon) return res.status(400).json({ success: false, error: 'Email and coupon required.' });
+  const code = coupon.toUpperCase();
+  if (!FREE_COUPONS.includes(code)) {
+    return res.status(400).json({ success: false, error: 'Invalid coupon code.' });
+  }
   const { data, error } = await supabaseAdmin
     .from('coupon_redemptions')
     .select('id')
-    .eq('coupon_code', 'NGP100')
+    .eq('coupon_code', code)
     .eq('email', email.toLowerCase())
     .maybeSingle();
   if (error) {
-    console.error('Supabase validate-ngp100 error:', error);
+    console.error('Supabase validate-coupon error:', error);
     return res.status(500).json({ success: false, error: 'Server error validating coupon.' });
   }
   if (data) {
-    return res.json({ success: false, error: 'Coupon NGP100 has already been used on this account.' });
+    return res.json({ success: false, error: `Coupon ${code} has already been used on this account.` });
   }
   return res.json({ success: true });
 });
 
-// Redeem NGP100 coupon — activates 1-month free subscription
-app.post('/redeem-ngp100', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ success: false, error: 'Email required.' });
+// Redeem free coupon — activates 3-month free subscription
+app.post('/redeem-coupon', async (req, res) => {
+  const { email, coupon } = req.body;
+  if (!email || !coupon) return res.status(400).json({ success: false, error: 'Email and coupon required.' });
+  const code = coupon.toUpperCase();
+  if (!FREE_COUPONS.includes(code)) {
+    return res.status(400).json({ success: false, error: 'Invalid coupon code.' });
+  }
   const key = email.toLowerCase();
   const { error } = await supabaseAdmin
     .from('coupon_redemptions')
-    .insert({ coupon_code: 'NGP100', email: key });
+    .insert({ coupon_code: code, email: key });
   if (error) {
     // Unique constraint violation = already used
     if (error.code === '23505') {
-      return res.status(400).json({ success: false, error: 'Coupon NGP100 has already been used on this account.' });
+      return res.status(400).json({ success: false, error: `Coupon ${code} has already been used on this account.` });
     }
-    console.error('Supabase redeem-ngp100 error:', error);
+    console.error('Supabase redeem-coupon error:', error);
     return res.status(500).json({ success: false, error: 'Server error redeeming coupon.' });
   }
-  console.log(`NGP100 redeemed by ${key}`);
-  return res.json({ success: true, message: 'NGP100 redeemed — 1 month free subscription activated.' });
+  console.log(`Coupon ${code} redeemed by ${key}`);
+  return res.json({ success: true, message: `${code} redeemed — 3 months free subscription activated.` });
 });
 
 app.post('/create-subscription-order', async (req, res) => {

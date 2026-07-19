@@ -1017,7 +1017,7 @@ export const checkSubscriptionActive = (user) => {
 };
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const NGP100_COUPON = 'NGP100'; // 1 month free, single use
+const FREE_COUPONS = ['LEMON', 'ADVVIDARBHA']; // 3 months free, single use per email
 const TESTER_COUPON = 'TESTER2024'; // Free access for testers
 
 const SUBSCRIPTION_PLANS = [
@@ -1060,8 +1060,8 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
       {SUBSCRIPTION_PLANS.map((plan) => {
         const originalPrice = plan.originalPrice;
         const isTesterFree = couponApplied && coupon === TESTER_COUPON;
-        const isNGP100Free = couponApplied && coupon === NGP100_COUPON;
-        const price = (isTesterFree || isNGP100Free) ? 0 : originalPrice;
+        const isFreeCoupon = couponApplied && FREE_COUPONS.includes(coupon) && plan.id === '3months';
+        const price = (isTesterFree || isFreeCoupon) ? 0 : originalPrice;
         return (
           <motion.div
             key={plan.id}
@@ -1088,7 +1088,7 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
               <h3 style={{ fontSize: compact ? '1.35rem' : '2rem', fontWeight: '950', marginBottom: '0.5rem', textTransform: 'uppercase' }}>{plan.name}</h3>
               <p style={{ color: '#64748b', fontWeight: '700', fontSize: '0.9rem', marginBottom: '1.5rem' }}>{plan.desc}</p>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                {(isTesterFree || isNGP100Free) ? (
+                {(isTesterFree || isFreeCoupon) ? (
                   <span style={{ fontSize: compact ? 'clamp(2.5rem, 14vw, 3rem)' : 'clamp(3rem, 13vw, 4.5rem)', fontWeight: '950', letterSpacing: '-3px', color: '#10b981' }}>FREE</span>
                 ) : (
                   <span style={{ fontSize: compact ? 'clamp(2.5rem, 14vw, 3rem)' : 'clamp(3rem, 13vw, 4.5rem)', fontWeight: '950', letterSpacing: '-3px' }}>₹{price}</span>
@@ -1112,7 +1112,7 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
               onClick={() => handleSubscribe(plan)}
               style={{
                 width: '100%',
-                background: (isTesterFree || isNGP100Free) ? '#10b981' : (plan.popular ? '#ef4444' : 'black'),
+                background: (isTesterFree || isFreeCoupon) ? '#10b981' : (plan.popular ? '#ef4444' : 'black'),
                 color: 'white',
                 border: '4.5px solid black',
                 padding: '1rem',
@@ -1125,7 +1125,7 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
                 letterSpacing: '0.05em'
               }}
             >
-              {loading ? 'Processing...' : ((isTesterFree || isNGP100Free) ? 'Activate Free Access' : 'Subscribe Now')}
+              {loading ? 'Processing...' : ((isTesterFree || isFreeCoupon) ? 'Activate Free Access' : 'Subscribe Now')}
             </motion.button>
           </motion.div>
         );
@@ -1140,7 +1140,7 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
             type="text"
             placeholder="Enter coupon code"
             value={coupon}
-            onChange={e => setCoupon(e.target.value)}
+            onChange={e => setCoupon(e.target.value.trim().toUpperCase())}
             style={{ flex: '1 1 180px', border: '3px solid black', padding: '0.75rem 1rem', borderRadius: '12px', fontWeight: '800', outline: 'none' }}
           />
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" style={{ background: 'black', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: '900', cursor: 'pointer', flex: '1 1 110px' }}>
@@ -1151,8 +1151,8 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
           <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#10b981', fontWeight: '900', fontSize: '0.85rem', marginTop: '0.5rem' }}>
             {coupon === TESTER_COUPON
               ? '🎉 Tester code applied — FREE ACCESS for all plans!'
-              : coupon === NGP100_COUPON
-              ? '🎉 NGP100 applied — 1 month FREE subscription activated!'
+              : FREE_COUPONS.includes(coupon)
+              ? `🎉 ${coupon} applied — 3 months FREE subscription activated!`
               : 'Coupon applied!'}
           </motion.div>
         )}
@@ -1183,16 +1183,16 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
 
   const handleApplyCoupon = async (e) => {
     e.preventDefault();
-    if (coupon === NGP100_COUPON) {
+    if (FREE_COUPONS.includes(coupon)) {
       if (!isLoggedIn || !user) {
         setCouponError('Please log in before applying this coupon.');
         return;
       }
       try {
-        const res = await fetch(`${API_URL}/validate-ngp100`, {
+        const res = await fetch(`${API_URL}/validate-coupon`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email }),
+          body: JSON.stringify({ email: user.email, coupon }),
         });
         const data = await res.json();
         if (data.success) {
@@ -1209,7 +1209,7 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
       setCouponApplied(true);
       setCouponError('');
     } else {
-      setCouponError('Invalid coupon code (case-sensitive)');
+      setCouponError('Invalid coupon code.');
       setCouponApplied(false);
     }
   };
@@ -1221,25 +1221,30 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
     }
     setLoading(true);
 
-    // NGP100: 1 month free, single use — bypass payment
-    if (couponApplied && coupon === NGP100_COUPON) {
+    // Free coupons (LEMON, ADVVIDARBHA): 3 months free, single use — bypass payment (only for 3months plan)
+    if (couponApplied && FREE_COUPONS.includes(coupon)) {
+      if (plan.id !== '3months') {
+        alert('This coupon is only valid for the 3 Months Pro plan.');
+        setLoading(false);
+        return;
+      }
       try {
-        const redeemRes = await fetch(`${API_URL}/redeem-ngp100`, {
+        const redeemRes = await fetch(`${API_URL}/redeem-coupon`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email }),
+          body: JSON.stringify({ email: user.email, coupon }),
         });
         const redeemData = await redeemRes.json();
         if (!redeemData.success) throw new Error(redeemData.error || 'Coupon redemption failed.');
 
         const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 1); // always 1 month free
+        expiryDate.setMonth(expiryDate.getMonth() + 3); // 3 months free
         const { error } = await supabase.auth.updateUser({
           data: {
             is_subscribed: true,
-            subscription_plan: '1 Month Pro (NGP100)',
+            subscription_plan: `3 Months Pro (${coupon})`,
             subscription_expiry: expiryDate.toISOString(),
-            ngp100_used: true,
+            coupon_used: coupon,
           },
         });
         if (error) throw error;
@@ -1255,7 +1260,7 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
         setLoading(false);
         return;
       } catch (err) {
-        alert(err.message || 'Error activating NGP100 subscription.');
+        alert(err.message || 'Error activating free subscription.');
         setLoading(false);
         return;
       }
