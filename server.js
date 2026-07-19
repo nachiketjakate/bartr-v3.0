@@ -5,8 +5,12 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import Razorpay from 'razorpay';
 import { createClient } from '@supabase/supabase-js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -358,6 +362,22 @@ app.post('/welcome-email', async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to send welcome email.' });
   }
 });
+
+// --- Serve built frontend (Vite dist/) ---
+// This lets the Express server act as both API backend AND static host
+// in production (Railway), removing the need for a separate static host.
+const distPath = path.join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // SPA catch-all: serve index.html for any non-API route
+  // Note: Express 5 requires named wildcard parameter syntax
+  app.get('/{*path}', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+  console.log(`Serving frontend from ${distPath}`);
+} else {
+  console.log('No dist/ folder found — running in API-only mode (dev).');
+}
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
