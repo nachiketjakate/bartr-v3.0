@@ -791,8 +791,6 @@ const GigsPage = ({ setPage, isLoggedIn, onAuth, onLogout, currentPage, user }) 
               onClick={() => {
                 if (!isLoggedIn || !user) {
                   onAuth('login');
-                } else if (!checkSubscriptionActive(user)) {
-                  openSubscriptionGate('post');
                 } else {
                   setShowPostModal(true);
                 }
