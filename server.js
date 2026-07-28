@@ -402,8 +402,11 @@ const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   // SPA catch-all: serve index.html for any non-API route
-  // Note: Express 5 requires named wildcard parameter syntax
-  app.get('/{*path}', (req, res) => {
+  // Using explicit root + wildcard to ensure full coverage in Express v5
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+  app.get('/*splat', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
   console.log(`Serving frontend from ${distPath}`);
