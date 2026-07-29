@@ -398,17 +398,37 @@ app.post('/welcome-email', async (req, res) => {
 // --- Serve built frontend (Vite dist/) ---
 // This lets the Express server act as both API backend AND static host
 // in production (Railway), removing the need for a separate static host.
+//
+// WHY THIS PATTERN:
+//   Express v5's express.static returns 403 (not 404) for SPA routes like
+//   /gigs or /profile because they look like directory requests with no
+//   matching file. This intercepts the request BEFORE our catch-all can run.
+//
+//   Fix: use `index: false` so express.static never tries to auto-serve
+//   index.html for directories, and `fallthrough: true` (default) so unresolved
+//   paths always pass through to our explicit SPA catch-all below.
 const distPath = path.join(__dirname, 'dist');
+const indexHtmlPath = path.join(distPath, 'index.html');
 if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-  // SPA catch-all: serve index.html for any non-API route
-  // Using explicit root + wildcard to ensure full coverage in Express v5
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
-  app.get('/*splat', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+  // Serve actual static assets (JS, CSS, images, etc.) only — never directories
+  app.use(express.static(distPath, { index: false, fallthrough: true }));
+
+  // SPA catch-all: read index.html once and serve it for every non-API route.
+  // Using fs.readFile avoids res.sendFile's OS-level permission checks that
+  // can re-trigger 403 errors on certain Railway/Nixpacks filesystem setups.
+  const serveIndex = (req, res) => {
+    fs.readFile(indexHtmlPath, (err, data) => {
+      if (err) {
+        console.error('Failed to read index.html:', err);
+        return res.status(500).send('Internal Server Error: Could not load app.');
+      }
+      res.setHeader('Content-Type', 'text/html');
+      res.send(data);
+    });
+  };
+
+  app.get('/', serveIndex);
+  app.get('/*splat', serveIndex);
   console.log(`Serving frontend from ${distPath}`);
 } else {
   console.log('No dist/ folder found — running in API-only mode (dev).');
