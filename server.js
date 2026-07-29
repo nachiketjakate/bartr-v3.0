@@ -402,18 +402,32 @@ app.post('/welcome-email', async (req, res) => {
 // WHY THIS PATTERN:
 //   Express v5's express.static returns 403 (not 404) for SPA routes like
 //   /gigs or /profile because they look like directory requests with no
-//   matching file. This intercepts the request BEFORE our catch-all can run.
+//   matching file. Even with `index: false` + `fallthrough: true`, Express v5
+//   emits 403 before fallthrough for directory-like paths.
 //
-//   Fix: use `index: false` so express.static never tries to auto-serve
-//   index.html for directories, and `fallthrough: true` (default) so unresolved
-//   paths always pass through to our explicit SPA catch-all below.
+//   Fix: Gate the static middleware behind a check — only run it when the
+//   request path contains a dot in the final segment (i.e. looks like a real
+//   asset: main.js, logo.png, style.css). SPA routes (/gigs, /profile, etc.)
+//   have no extension so they skip static entirely and go straight to the
+//   index.html catch-all below. No more 403s.
 const distPath = path.join(__dirname, 'dist');
 const indexHtmlPath = path.join(distPath, 'index.html');
 if (fs.existsSync(distPath)) {
-  // Serve actual static assets (JS, CSS, images, etc.) only — never directories
-  app.use(express.static(distPath, { index: false, fallthrough: true }));
+  // Only forward to express.static when the request looks like a real file asset.
+  // This prevents directory-like SPA routes from ever reaching express.static
+  // and triggering a 403 in Express v5.
+  const staticMiddleware = express.static(distPath, { index: false, fallthrough: true });
+  app.use((req, res, next) => {
+    const lastSegment = req.path.split('/').pop();
+    if (lastSegment && lastSegment.includes('.')) {
+      // Has a file extension — let express.static handle it
+      return staticMiddleware(req, res, next);
+    }
+    // No extension = SPA route — skip static entirely
+    next();
+  });
 
-  // SPA catch-all: read index.html once and serve it for every non-API route.
+  // SPA catch-all: read index.html and serve it for every non-API, non-asset route.
   // Using fs.readFile avoids res.sendFile's OS-level permission checks that
   // can re-trigger 403 errors on certain Railway/Nixpacks filesystem setups.
   const serveIndex = (req, res) => {
