@@ -37,10 +37,28 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const app = express();
-app.use(cors());
+
+// CORS: restrict to known production origins.
+// Allows localhost for local development and the Railway domain for production.
+const allowedOrigins = [
+  'https://bartr-v30-production.up.railway.app',
+  'https://bartr.in',
+  'http://localhost:5173',
+  'http://localhost:3001',
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: Origin '${origin}' not allowed.`));
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
 
-// Health check endpoint
+// Health check endpoint — used by Railway to verify the server started correctly
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -50,9 +68,54 @@ app.get('/health', (req, res) => {
   });
 });
 
-// In-memory store for OTPs
-// Structure: { "email@example.com": { otp: "123456", expiresAt: 1714000000000 } }
-const otps = {};
+// ---------------------------------------------------------------------------
+// OTP Store — Supabase-backed with in-memory fallback
+// ---------------------------------------------------------------------------
+// OTPs are stored in the `otp_store` Supabase table so they survive server
+// restarts and Railway deploys. Falls back to in-memory if Supabase is
+// unavailable (development mode).
+//
+// Required Supabase table (run in SQL Editor):
+//   CREATE TABLE IF NOT EXISTS otp_store (
+//     email TEXT PRIMARY KEY,
+//     otp TEXT NOT NULL,
+//     expires_at TIMESTAMPTZ NOT NULL
+//   );
+//   ALTER TABLE otp_store ENABLE ROW LEVEL SECURITY;
+//   -- Service role bypasses RLS, so no policies needed for server-side access.
+// ---------------------------------------------------------------------------
+const otpMemory = {}; // fallback for dev / when Supabase is unavailable
+
+const otpSet = async (email, otp, expiresAt) => {
+  if (supabaseAdmin) {
+    const { error } = await supabaseAdmin
+      .from('otp_store')
+      .upsert({ email: email.toLowerCase(), otp, expires_at: new Date(expiresAt).toISOString() });
+    if (error) console.error('OTP upsert error, falling back to memory:', error.message);
+    else return;
+  }
+  otpMemory[email] = { otp, expiresAt };
+};
+
+const otpGet = async (email) => {
+  if (supabaseAdmin) {
+    const { data, error } = await supabaseAdmin
+      .from('otp_store')
+      .select('otp, expires_at')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+    if (error) console.error('OTP fetch error, falling back to memory:', error.message);
+    else if (data) return { otp: data.otp, expiresAt: new Date(data.expires_at).getTime() };
+  }
+  return otpMemory[email] || null;
+};
+
+const otpDelete = async (email) => {
+  if (supabaseAdmin) {
+    await supabaseAdmin.from('otp_store').delete().eq('email', email.toLowerCase());
+  }
+  delete otpMemory[email];
+};
 
 const razorpay =
   process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
@@ -137,7 +200,7 @@ app.post('/send-otp', async (req, res) => {
 
   // Set expiry to exactly 2 minutes from now
   const expiresAt = Date.now() + 2 * 60 * 1000;
-  otps[email] = { otp, expiresAt };
+  await otpSet(email, otp, expiresAt);
 
   console.log(`Sending OTP ${otp} to ${email}...`);
 
@@ -170,23 +233,23 @@ app.post('/send-otp', async (req, res) => {
   }
 });
 
-app.post('/verify-otp', (req, res) => {
+app.post('/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
 
-  const record = otps[email];
+  const record = await otpGet(email);
   if (!record) {
     return res.status(400).json({ success: false, error: 'No OTP requested for this email. Try sending again.' });
   }
 
-  // Check Expiry (2 Limit limit)
+  // Check Expiry (2 minute limit)
   if (Date.now() > record.expiresAt) {
-    delete otps[email]; // Clean up immediately
+    await otpDelete(email); // Clean up immediately
     return res.status(400).json({ success: false, error: 'OTP has expired (2 minute limit). Please request a new one.' });
   }
 
   // Check Match
   if (record.otp === otp) {
-    delete otps[email]; // Clean up on success
+    await otpDelete(email); // Clean up on success
     return res.json({ success: true, message: 'OTP verified successfully' });
   }
 
@@ -395,41 +458,50 @@ app.post('/welcome-email', async (req, res) => {
   }
 });
 
-// --- Serve built frontend (Vite dist/) ---
+// ---------------------------------------------------------------------------
+// Serve built frontend (Vite dist/)
+// ---------------------------------------------------------------------------
 // This lets the Express server act as both API backend AND static host
 // in production (Railway), removing the need for a separate static host.
 //
 // WHY THIS PATTERN:
-//   Express v5's express.static returns 403 (not 404) for SPA routes like
-//   /gigs or /profile because they look like directory requests with no
-//   matching file. Even with `index: false` + `fallthrough: true`, Express v5
-//   emits 403 before fallthrough for directory-like paths.
+//   Express v5's express.static returns 403 for dot-files (like .htaccess)
+//   and for directory-like SPA routes (/gigs, /profile) even with index:false.
 //
-//   Fix: Gate the static middleware behind a check — only run it when the
-//   request path contains a dot in the final segment (i.e. looks like a real
-//   asset: main.js, logo.png, style.css). SPA routes (/gigs, /profile, etc.)
-//   have no extension so they skip static entirely and go straight to the
-//   index.html catch-all below. No more 403s.
+//   Fix 1 (build-time): vite.config.js removes .htaccess/.cpanel.yml from
+//   dist/ after every build via the removeApacheArtifacts plugin.
+//
+//   Fix 2 (runtime): Gate express.static so it only activates for requests
+//   that have a file extension (real assets). SPA routes have no extension
+//   and skip straight to the index.html catch-all — no static middleware
+//   involvement at all, so no 403 possible.
+//
+//   Fix 3 (runtime): Set dotfiles:'allow' so if any dot-file somehow remains
+//   in dist/, it gets served normally instead of 403.
+// ---------------------------------------------------------------------------
 const distPath = path.join(__dirname, 'dist');
 const indexHtmlPath = path.join(distPath, 'index.html');
+
 if (fs.existsSync(distPath)) {
+  const staticMiddleware = express.static(distPath, {
+    index: false,
+    fallthrough: true,
+    dotfiles: 'allow', // Defense-in-depth: serve dot-files instead of 403ing
+  });
+
   // Only forward to express.static when the request looks like a real file asset.
-  // This prevents directory-like SPA routes from ever reaching express.static
-  // and triggering a 403 in Express v5.
-  const staticMiddleware = express.static(distPath, { index: false, fallthrough: true });
+  // Paths without a dot in the last segment (SPA routes) skip static entirely.
   app.use((req, res, next) => {
     const lastSegment = req.path.split('/').pop();
     if (lastSegment && lastSegment.includes('.')) {
-      // Has a file extension — let express.static handle it
       return staticMiddleware(req, res, next);
     }
-    // No extension = SPA route — skip static entirely
     next();
   });
 
   // SPA catch-all: read index.html and serve it for every non-API, non-asset route.
   // Using fs.readFile avoids res.sendFile's OS-level permission checks that
-  // can re-trigger 403 errors on certain Railway/Nixpacks filesystem setups.
+  // can trigger 403 errors on Railway/Nixpacks filesystem setups.
   const serveIndex = (req, res) => {
     fs.readFile(indexHtmlPath, (err, data) => {
       if (err) {

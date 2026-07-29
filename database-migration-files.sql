@@ -53,3 +53,33 @@ COMMENT ON COLUMN messages.attachment_size IS 'File size in bytes';
 -- Verification queries:
 -- SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'messages';
 -- SELECT * FROM messages WHERE attachment_url IS NOT NULL LIMIT 5;
+
+-- ============================================================
+-- Migration: OTP Store table for server-side OTP persistence
+-- Required for OTPs to survive Railway server restarts/deploys.
+-- Run this in your Supabase SQL Editor.
+-- ============================================================
+
+-- 7. Create otp_store table
+CREATE TABLE IF NOT EXISTS otp_store (
+  email TEXT PRIMARY KEY,
+  otp TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS (service role key used by server bypasses it automatically)
+ALTER TABLE otp_store ENABLE ROW LEVEL SECURITY;
+
+-- Auto-delete expired OTPs to keep the table clean
+-- (Supabase does not have native TTL — use a cron or pg_cron for this)
+-- Alternatively, the server deletes OTPs on verify/expiry check.
+
+-- Index for fast lookups by email
+CREATE INDEX IF NOT EXISTS idx_otp_store_email ON otp_store(email);
+
+-- Index to help with cleanup of expired records
+CREATE INDEX IF NOT EXISTS idx_otp_store_expires ON otp_store(expires_at);
+
+-- Verification:
+-- SELECT * FROM otp_store;
