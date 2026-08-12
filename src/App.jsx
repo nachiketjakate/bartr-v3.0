@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
 import { TypeAnimation } from 'react-type-animation';
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -232,71 +232,31 @@ const Navbar = ({ scrolled, setPage, isDark, isLoggedIn, onAuth, onLogout, curre
 
   return (
   <nav className={`navbar transition-all duration-500 fixed top-0 w-full z-[1000] ${scrolled ? 'bg-white/80 backdrop-blur-2xl border-b border-white/20 shadow-crystal' : 'bg-transparent'}`}>
-    <div className="container mx-auto px-6 md:px-8 py-3 md:py-5 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0">
-      {/* Top Row: Brand (Left) + Auth (Right) on mobile */}
-      <div className="flex justify-between items-center w-full md:w-auto">
-        <motion.div
-          whileHover={{ scale: 1.02, rotate: -1 }}
-          className="brand cursor-pointer flex items-center bg-brand-red px-4 md:px-5 py-1.5 md:py-2 rounded-xl shadow-neo"
-          onClick={() => setPage('home')}
-        >
-          <span className="text-white text-xl md:text-2xl font-black tracking-tight font-['Space_Grotesk']">Bartr.in</span>
-        </motion.div>
+    <div className="container mx-auto px-6 md:px-8 py-3 md:py-5 flex flex-row justify-between items-center">
+      {/* Brand */}
+      <motion.div
+        whileHover={{ scale: 1.02, rotate: -1 }}
+        className="brand cursor-pointer flex items-center bg-brand-red px-4 md:px-5 py-1.5 md:py-2 rounded-xl shadow-neo"
+        onClick={() => setPage('home')}
+      >
+        <span className="text-white text-xl md:text-2xl font-black tracking-tight font-['Space_Grotesk']">Bartr.in</span>
+      </motion.div>
 
-        {/* Mobile Auth (Now on the Right) */}
-        <div className="flex md:hidden gap-2">
-          {isLoggedIn ? (
-            <>
-              <button onClick={() => window.dispatchEvent(new Event('openInboxModal'))} className="bg-white border-2 border-slate-900 px-3 py-2 rounded-xl text-slate-900 flex items-center justify-center relative">
-                <MessageSquare size={16} />
-                {hasUnread && <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%', border: '2px solid white' }}></span>}
-              </button>
-              <button onClick={onLogout} className="bg-white border-2 border-slate-900 px-4 py-2 rounded-xl font-black text-xs shadow-sm uppercase">Logout</button>
-            </>
-          ) : (
-            <button onClick={() => onAuth('login')} className="bg-white border-2 border-slate-900 px-4 py-2 rounded-xl font-black text-xs shadow-sm uppercase">Login</button>
-          )}
-        </div>
-      </div>
-
-
-      {/* Navigation Links - Scrollable on mobile, centered on desktop */}
-      <div className="flex items-center gap-1 md:gap-2 overflow-x-auto no-scrollbar w-full md:w-auto justify-start md:justify-center py-1 md:py-0 border-t md:border-t-0 border-black/5 mt-1 md:mt-0">
-        {[
-          { id: 'gigs', label: 'Gigs', icon: <Zap size={18} /> },
-          { id: 'events', label: 'Events', icon: <Calendar size={18} /> },
-          { id: 'careers', label: 'Careers', icon: <Briefcase size={18} /> },
-          { id: 'tri-score', label: 'TRI Score', icon: <Award size={18} /> },
-          { id: 'student', label: 'Student', icon: <GraduationCap size={18} /> },
-          ...(isLoggedIn ? [{ id: 'profile', label: 'Profile', icon: <User size={18} /> }] : [])
-        ].map((item) => (
-          <motion.a
-            key={item.id}
-            onClick={() => setPage(item.id)}
-            className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${currentPage === item.id ? 'bg-black text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-            style={{ cursor: 'pointer' }}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </motion.a>
-        ))}
-      </div>
-
-      {/* Desktop Auth Actions */}
-      <div className="hidden md:flex gap-3 items-center">
+      {/* Auth Actions */}
+      <div className="flex gap-2 md:gap-3 items-center">
         {isLoggedIn ? (
           <>
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={() => window.dispatchEvent(new Event('openInboxModal'))}
-              className="bg-white border-2 border-black w-10 h-10 rounded-xl flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-black relative"
+              className="bg-white border-2 border-black w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-black relative"
             >
               <MessageSquare size={18} />
-              {hasUnread && <span style={{ position: 'absolute', top: '-6px', right: '-6px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '3px solid white', boxShadow: '0 0 0 1px black' }}></span>}
+              {hasUnread && <span style={{ position: 'absolute', top: '-5px', right: '-5px', width: '12px', height: '12px', background: '#ef4444', borderRadius: '50%', border: '2px solid white' }}></span>}
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onLogout}
-              className="bg-white border-2 border-black px-5 py-2 rounded-xl font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase text-sm"
+              className="bg-white border-2 border-black px-4 md:px-5 py-2 rounded-xl font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] uppercase text-xs md:text-sm"
             >
               LOGOUT
             </motion.button>
@@ -305,15 +265,15 @@ const Navbar = ({ scrolled, setPage, isDark, isLoggedIn, onAuth, onLogout, curre
           <>
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onAuth('login')}
-              className="bg-white text-black border-2 border-black px-5 py-2 rounded-xl font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase text-sm"
+              className="bg-white text-black border-2 border-black px-4 md:px-5 py-2 rounded-xl font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] uppercase text-xs md:text-sm"
             >
               LOGIN
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onAuth('signup')}
-              className="bg-brand-red text-white border-2 border-black px-5 py-2 rounded-xl font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase text-sm"
+              className="bg-brand-red text-white border-2 border-black px-4 md:px-5 py-2 rounded-xl font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] uppercase text-xs md:text-sm"
             >
-              SIGNUP
+              GET STARTED
             </motion.button>
           </>
         )}
@@ -3276,6 +3236,7 @@ const UserProfile = ({ setPage, user }) => {
 };
 
 
+
 const AuthModal = ({ isOpen, initialMode, onClose }) => {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState('');
@@ -3286,19 +3247,22 @@ const AuthModal = ({ isOpen, initialMode, onClose }) => {
   const [role, setRole] = useState('freelancer');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false); // New state for signup success
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [step, setStep] = useState('role');
+  const [selectedMode, setSelectedMode] = useState(null);
 
   useEffect(() => {
     setIsLogin(initialMode === 'login');
     setError(null);
     setShowSuccess(false);
+    setStep(initialMode === 'login' ? 'auth' : 'role');
+    setSelectedMode(null);
   }, [initialMode, isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -3313,20 +3277,18 @@ const AuthModal = ({ isOpen, initialMode, onClose }) => {
               full_name: fullName,
               phone: phone,
               role: role,
+              bartr_mode: selectedMode || 'hire',
               ...(role === 'student' && { college: collegeName })
             }
           }
         });
         if (error) throw error;
-
-        // Send custom welcome email via backend
         fetch(`${API_URL}/welcome-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, fullName })
         }).catch(err => console.error("Welcome email failed:", err));
-
-        setShowSuccess(true); // Show the success UI
+        setShowSuccess(true);
       }
     } catch (err) {
       setError(err.message);
@@ -3338,203 +3300,266 @@ const AuthModal = ({ isOpen, initialMode, onClose }) => {
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
+      options: { redirectTo: window.location.origin }
     });
     if (error) setError(error.message);
   };
 
   if (!isOpen) return null;
 
+  const cloneStyles = `
+    .ba-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:16px}
+    .ba-sheet{background:#fff;border-radius:28px;width:100%;max-width:420px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 32px 80px rgba(0,0,0,0.35)}
+    .ba-sheet::-webkit-scrollbar{width:0}
+    .ba-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;z-index:10;transition:background 0.2s}
+    .ba-close:hover{background:rgba(255,255,255,0.3)}
+    .ba-hero{padding:32px 28px 28px;background:linear-gradient(145deg,#1F0D0D 0%,#3a1414 100%);border-radius:28px 28px 0 0;position:relative;overflow:hidden}
+    .ba-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:rgba(239,68,68,0.15);border-radius:50%;pointer-events:none}
+    .ba-logo{font-size:24px;font-weight:900;color:#fff;margin-bottom:20px;display:inline-block}
+    .ba-logo span{color:#ef4444}
+    .ba-back{background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.7);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:16px;transition:background 0.2s}
+    .ba-back:hover{background:rgba(255,255,255,0.2)}
+    .ba-headline{font-size:28px;font-weight:900;color:#fff;line-height:1.15;margin-bottom:8px}
+    .ba-sub{font-size:13px;color:rgba(255,255,255,0.55);font-weight:500}
+    .ba-role-cards{display:flex;flex-direction:column;gap:12px;margin:24px 0 0}
+    .ba-role-card{border-radius:16px;padding:20px;cursor:pointer;border:2px solid transparent;position:relative;overflow:hidden;transition:all 0.2s;display:flex;flex-direction:column;gap:6px}
+    .ba-role-card.hire{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3)}
+    .ba-role-card.hire:hover{border-color:#ef4444;background:rgba(239,68,68,0.2)}
+    .ba-role-card.earn{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12)}
+    .ba-role-card.earn:hover{border-color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.12)}
+    .ba-role-icon{font-size:28px;margin-bottom:4px}
+    .ba-role-title{font-size:17px;font-weight:800;color:#fff}
+    .ba-role-desc{font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5}
+    .ba-role-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .ba-chip-hire{background:rgba(239,68,68,0.2);color:#fca5a5;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700}
+    .ba-chip-earn{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700}
+    .ba-role-arrow{position:absolute;right:16px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff}
+    .ba-role-card.hire .ba-role-arrow{background:rgba(239,68,68,0.5)}
+    .ba-body{padding:28px}
+    .ba-mode-tag{display:inline-flex;align-items:center;gap:6px;background:#fef2f2;color:#dc2626;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:20px;border:1.5px solid #fecaca}
+    .ba-toggle{display:flex;background:#f5f2f2;border-radius:100px;padding:3px;margin-bottom:22px;gap:2px}
+    .ba-toggle-btn{flex:1;padding:9px;border-radius:100px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:transparent;color:#9CA3AF;transition:all 0.2s}
+    .ba-toggle-btn.active{background:#1F0D0D;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.15)}
+    .ba-field{margin-bottom:16px}
+    .ba-label{display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px}
+    .ba-input{width:100%;padding:13px 16px;border:1.5px solid #E5E7EB;border-radius:12px;font-size:15px;color:#111827;background:#fff;outline:none;transition:border-color 0.2s,box-shadow 0.2s;font-family:inherit;box-sizing:border-box}
+    .ba-input:focus{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.12)}
+    .ba-input::placeholder{color:#9CA3AF}
+    .ba-role-mini{display:flex;gap:8px;margin-top:6px}
+    .ba-role-mini-btn{flex:1;padding:9px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid transparent;background:#f5f2f2;color:#6B7280;transition:all 0.2s;text-align:center}
+    .ba-role-mini-btn.active{background:#1F0D0D;color:#fff;border-color:#1F0D0D}
+    .ba-error{background:#fef2f2;border:1.5px solid #fecaca;color:#dc2626;padding:12px 16px;border-radius:12px;font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .ba-submit{width:100%;padding:15px;border-radius:100px;font-size:16px;font-weight:800;cursor:pointer;border:none;background:#1F0D0D;color:#fff;transition:all 0.2s;margin-bottom:16px}
+    .ba-submit:hover{background:#3a1414}
+    .ba-submit:active{transform:scale(0.98)}
+    .ba-submit:disabled{opacity:0.6;cursor:not-allowed}
+    .ba-or{display:flex;align-items:center;gap:12px;margin:16px 0;color:#9CA3AF;font-size:12px;font-weight:600}
+    .ba-or::before,.ba-or::after{content:'';flex:1;height:1px;background:#E5E7EB}
+    .ba-google{width:100%;padding:13px;border-radius:100px;border:1.5px solid #E5E7EB;background:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;cursor:pointer;color:#111827;transition:all 0.2s;margin-bottom:20px}
+    .ba-google:hover{border-color:#1F0D0D;background:#f9fafb}
+    .ba-switch{text-align:center;font-size:13px;color:#6B7280;font-weight:500}
+    .ba-switch button{background:none;border:none;color:#1F0D0D;font-weight:800;cursor:pointer;font-size:13px;text-decoration:underline}
+    .ba-success{padding:40px 28px;text-align:center}
+    .ba-success-icon{font-size:64px;margin-bottom:20px;display:block}
+    .ba-success-title{font-size:26px;font-weight:900;color:#111827;margin-bottom:10px}
+    .ba-success-sub{font-size:14px;color:#6B7280;line-height:1.6;margin-bottom:28px}
+    .ba-success-sub strong{color:#1F0D0D}
+    .ba-cta{width:100%;padding:15px;border-radius:100px;background:#1F0D0D;color:#fff;border:none;font-size:16px;font-weight:800;cursor:pointer;transition:background 0.2s}
+    .ba-cta:hover{background:#3a1414}
+    .ba-terms{text-align:center;font-size:11px;color:#9CA3AF;margin-top:12px;line-height:1.6}
+    .ba-terms a{color:#6B7280;text-decoration:underline}
+  `;
+
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[10000] flex items-center justify-center p-4 backdrop-blur-xl bg-black/60"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9, y: 30, rotate: -1 }}
-          animate={{ scale: 1, y: 0, rotate: 0 }}
-          exit={{ scale: 0.9, y: 30 }}
-          className="bg-white border-[5px] sm:border-[8px] border-black rounded-[28px] sm:rounded-[40px] w-full max-w-[650px] max-h-[92vh] relative overflow-y-auto shadow-[8px_8px_0px_rgba(0,0,0,1)] sm:shadow-[16px_16px_0px_rgba(0,0,0,1)]"
-          onClick={e => e.stopPropagation()}
-        >
-          {showSuccess ? (
-            <div className="p-6 sm:p-12 text-center">
-              <motion.div
-                animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="text-8xl mb-8"
-              >
-                📩
-              </motion.div>
-              <h2 className="text-4xl font-black uppercase tracking-tighter mb-4 italic">Check Yo Mail!</h2>
-              <p className="font-bold text-slate-500 text-lg mb-10 leading-tight">We sent a magic link to <span className="text-black underline">{email}</span>. Activate it to start the hustle.</p>
-              <motion.button
-                onClick={() => { setShowSuccess(false); setIsLogin(true); }}
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-full bg-brand-red text-white border-4 border-black py-5 rounded-2xl font-black text-2xl shadow-neo uppercase italic tracking-widest"
-              >
-                Back to Login
-              </motion.button>
-            </div>
-          ) : (
-            <>
-              {/* Vibrant Header */}
-              <div className={`p-5 sm:p-8 border-b-[5px] sm:border-b-[6px] border-black relative transition-colors duration-500 ${isLogin ? 'bg-indigo-500' : 'bg-rose-500'}`}>
-                <motion.div
-                  whileHover={{ scale: 1.1, rotate: 2 }}
-                  className="bg-white border-4 border-black px-4 py-1.5 rounded-xl shadow-[6px_6px_0px_black] w-fit mb-6"
-                >
-                  <span className="text-black text-xl font-black tracking-tight font-['Space_Grotesk'] italic">Bartr.in</span>
-                </motion.div>
-
-                <h2 className="text-3xl sm:text-5xl font-black text-white uppercase italic tracking-tighter leading-[0.85] mb-2 pr-12">
-                  {isLogin ? 'Welcome Back, Legend' : 'Join the Hustle'}
-                </h2>
-                <p className="text-white font-black opacity-90 uppercase tracking-widest text-xs">
-                  {isLogin ? 'India is waiting for you' : 'Start building your future today'}
-                </p>
-
-                <motion.button
-                  whileHover={{ rotate: 90, scale: 1.1 }}
-                  onClick={onClose}
-                  className="absolute top-4 right-4 sm:top-6 sm:right-6 bg-black text-white p-2 rounded-xl border-4 border-white shadow-lg"
-                >
-                  <X size={20} strokeWidth={3} />
-                </motion.button>
-              </div>
-
-              <div className="p-5 sm:p-8 md:p-10 space-y-6">
-                {error && (
-                  <div className="bg-rose-100 border-4 border-rose-500 p-4 rounded-xl flex items-center gap-3 animate-shake">
-                    <AlertCircle className="text-rose-600" />
-                    <p className="text-rose-900 font-black text-sm uppercase italic">{error}</p>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  
-                  {/* Multi-Login Role Toggle */}
-                  <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl mb-2 border-2 border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => setRole('freelancer')}
-                      className={`flex-1 py-3 rounded-xl font-black text-sm uppercase transition-all ${role === 'freelancer' ? 'bg-white text-black shadow-sm border-2 border-black' : 'text-slate-400 hover:text-slate-600 border-2 border-transparent'}`}
-                    >
-                      Freelancer
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole('student')}
-                      className={`flex-1 py-3 rounded-xl font-black text-sm uppercase transition-all ${role === 'student' ? 'bg-indigo-500 text-white shadow-sm border-2 border-black' : 'text-slate-400 hover:text-slate-600 border-2 border-transparent'}`}
-                    >
-                      Student
-                    </button>
-                  </div>
-
-                  <div className={`grid gap-4 ${!isLogin ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
-                    {!isLogin && (
-                      <div className="space-y-2">
-                        <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-2">Full Name</label>
-                        <input
-                          type="text"
-                          placeholder="Your Boss Name"
-                          className="w-full bg-slate-50 border-4 border-black p-4 rounded-2xl font-bold text-lg focus:bg-white focus:shadow-[4px_4px_0px_black] transition-all outline-none"
-                          value={fullName}
-                          onChange={e => setFullName(e.target.value)}
-                          required
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-2">Email Address</label>
-                      <input
-                        type="email"
-                        placeholder="you@hustle.com"
-                        className="w-full bg-slate-50 border-4 border-black p-4 rounded-2xl font-bold text-lg focus:bg-white focus:shadow-[4px_4px_0px_black] transition-all outline-none"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-2">Password</label>
-                      <input
-                        type="password"
-                        placeholder="••••••••"
-                        className="w-full bg-slate-50 border-4 border-black p-4 rounded-2xl font-bold text-lg focus:bg-white focus:shadow-[4px_4px_0px_black] transition-all outline-none"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    {!isLogin && role === 'student' && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-                        <label className="text-xs font-black uppercase tracking-widest text-indigo-400 ml-2">School / College</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. VNIT, Raisoni"
-                          className="w-full bg-indigo-50 border-4 border-black p-4 rounded-2xl font-bold text-lg focus:bg-white focus:shadow-[4px_4px_0px_black] focus:border-indigo-500 transition-all outline-none text-indigo-900"
-                          value={collegeName}
-                          onChange={e => setCollegeName(e.target.value)}
-                          required
-                        />
-                      </motion.div>
-                    )}
-                  </div>
-
-                  <motion.button
-                    type="submit"
-                    disabled={loading}
-                    whileHover={{ scale: 1.02, y: -4 }}
-                    whileTap={{ scale: 0.98, y: 0 }}
-                    className={`w-full py-4 sm:py-5 rounded-2xl font-black text-xl sm:text-2xl border-4 border-black shadow-[6px_6px_0px_black] sm:shadow-[8px_8px_0px_black] uppercase italic tracking-widest transition-all ${loading ? 'opacity-50 cursor-not-allowed' : 'bg-black text-white hover:bg-slate-900'}`}
+    <>
+      <style>{cloneStyles}</style>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="ba-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          >
+            <motion.div
+              className="ba-sheet"
+              initial={{ opacity: 0, y: 32, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 32, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+              onClick={e => e.stopPropagation()}
+            >
+              {showSuccess ? (
+                <div className="ba-success">
+                  <motion.span
+                    className="ba-success-icon"
+                    animate={{ scale: [1, 1.15, 1], rotate: [0, 8, -8, 0] }}
+                    transition={{ repeat: Infinity, duration: 2.5 }}
                   >
-                    {loading ? 'Hustling...' : isLogin ? 'Let\'s Gooo' : 'Start Now'}
-                  </motion.button>
-                </form>
-
-                <div className="relative flex items-center py-4">
-                  <div className="flex-grow border-t-4 border-black/10"></div>
-                  <span className="flex-shrink mx-4 text-slate-400 font-black text-xs uppercase tracking-widest">OR</span>
-                  <div className="flex-grow border-t-4 border-black/10"></div>
-                </div>
-
-                <motion.button
-                  onClick={handleGoogleLogin}
-                  whileHover={{ scale: 1.02, y: -4 }}
-                  whileTap={{ scale: 0.98, y: 0 }}
-                  className="w-full bg-white border-4 border-black py-4 rounded-2xl flex items-center justify-center gap-4 shadow-[8px_8px_0px_rgba(0,0,0,0.1)] hover:shadow-[8px_8px_0px_black] transition-all"
-                >
-                  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/google/google-original.svg" className="w-6 h-6" alt="G" />
-                  <span className="font-black text-base sm:text-xl uppercase italic">Continue with Google</span>
-                </motion.button>
-
-                <div className="text-center pt-4">
-                  <button
-                    onClick={() => setIsLogin(!isLogin)}
-                    className="text-slate-500 font-black uppercase tracking-widest text-xs hover:text-black hover:underline underline-offset-4"
-                  >
-                    {isLogin ? 'New to the hub? Create account' : 'Already a legend? Login here'}
+                    📩
+                  </motion.span>
+                  <div className="ba-success-title">Check Your Email!</div>
+                  <div className="ba-success-sub">
+                    We sent a confirmation link to <strong>{email}</strong>.<br />
+                    Click it to activate your Bartr account.
+                  </div>
+                  <button className="ba-cta" onClick={() => { setShowSuccess(false); setIsLogin(true); setStep('auth'); }}>
+                    Back to Login →
                   </button>
                 </div>
-              </div>
-            </>
-          )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+              ) : step === 'role' ? (
+                <>
+                  <div className="ba-hero">
+                    <button className="ba-close" onClick={onClose}>
+                      <X size={16} strokeWidth={3} />
+                    </button>
+                    <div className="ba-logo">Bar<span>tr</span><span style={{ color: '#ef4444' }}>.</span></div>
+                    <div className="ba-headline">
+                      How would you<br />like to use <span style={{ background: '#ef4444', color: '#fff', padding: '0 6px', borderRadius: '6px' }}>Bartr?</span>
+                    </div>
+                    <div className="ba-sub">You can switch modes anytime from settings.</div>
+                    <div className="ba-role-cards">
+                      <motion.div
+                        className="ba-role-card hire"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => { setSelectedMode('hire'); setRole('freelancer'); setTimeout(() => setStep('auth'), 180); }}
+                      >
+                        <div className="ba-role-icon">🙋</div>
+                        <div className="ba-role-title">I Need Help</div>
+                        <div className="ba-role-desc">Post tasks and find trusted people nearby to get everyday things done quickly.</div>
+                        <div className="ba-role-chips">
+                          <span className="ba-chip-hire">✓ Post Tasks</span>
+                          <span className="ba-chip-hire">✓ Chat Helpers</span>
+                        </div>
+                        <div className="ba-role-arrow">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        className="ba-role-card earn"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => { setSelectedMode('earn'); setRole('freelancer'); setTimeout(() => setStep('auth'), 180); }}
+                      >
+                        <div className="ba-role-icon">💰</div>
+                        <div className="ba-role-title">I Want to Earn</div>
+                        <div className="ba-role-desc">Browse tasks near you, help neighbors, and earn money by doing simple local tasks.</div>
+                        <div className="ba-role-chips">
+                          <span className="ba-chip-earn">✓ No Skills Needed</span>
+                          <span className="ba-chip-earn">✓ Instant Pay</span>
+                        </div>
+                        <div className="ba-role-arrow">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                      </motion.div>
+                    </div>
+                  </div>
+                  <div className="ba-body" style={{ paddingTop: 20 }}>
+                    <div className="ba-switch">
+                      Already have an account?{' '}
+                      <button onClick={() => { setStep('auth'); setIsLogin(true); }}>Sign in</button>
+                    </div>
+                    <div className="ba-terms">
+                      By continuing, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="ba-hero">
+                    <button className="ba-close" onClick={onClose}>
+                      <X size={16} strokeWidth={3} />
+                    </button>
+                    {!isLogin && (
+                      <button className="ba-back" onClick={() => setStep('role')} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                    )}
+                    <div className="ba-logo">Bar<span>tr</span><span style={{ color: '#ef4444' }}>.</span></div>
+                    <div className="ba-headline">
+                      {isLogin ? 'Welcome Back! 👋' : selectedMode === 'earn' ? 'Start Earning 💰' : 'Get Help Fast 🙋'}
+                    </div>
+                    <div className="ba-sub">
+                      {isLogin ? 'Sign in to your Bartr account' : 'Create your free account in seconds'}
+                    </div>
+                  </div>
+                  <div className="ba-body">
+                    {!isLogin && selectedMode && (
+                      <div className="ba-mode-tag">
+                        {selectedMode === 'earn' ? '💰 Earn Mode' : '🙋 Hire Mode'} selected
+                      </div>
+                    )}
+                    <div className="ba-toggle">
+                      <button type="button" className={`ba-toggle-btn ${isLogin ? 'active' : ''}`} onClick={() => { setIsLogin(true); setError(null); }}>Sign In</button>
+                      <button type="button" className={`ba-toggle-btn ${!isLogin ? 'active' : ''}`} onClick={() => { setIsLogin(false); setError(null); }}>Sign Up</button>
+                    </div>
+                    {error && (
+                      <motion.div className="ba-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                        <AlertCircle size={16} />
+                        {error}
+                      </motion.div>
+                    )}
+                    <form onSubmit={handleSubmit}>
+                      <AnimatePresence>
+                        {!isLogin && (
+                          <motion.div key="signup-fields" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
+                            <div className="ba-field">
+                              <label className="ba-label">Full Name</label>
+                              <input className="ba-input" type="text" placeholder="Your full name" value={fullName} onChange={e => setFullName(e.target.value)} required />
+                            </div>
+                            <div className="ba-field">
+                              <label className="ba-label">Account Type</label>
+                              <div className="ba-role-mini">
+                                <button type="button" className={`ba-role-mini-btn ${role === 'freelancer' ? 'active' : ''}`} onClick={() => setRole('freelancer')}>Freelancer</button>
+                                <button type="button" className={`ba-role-mini-btn ${role === 'student' ? 'active' : ''}`} onClick={() => setRole('student')}>Student</button>
+                              </div>
+                            </div>
+                            {role === 'student' && (
+                              <motion.div className="ba-field" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                <label className="ba-label">School / College</label>
+                                <input className="ba-input" type="text" placeholder="e.g. VNIT, Raisoni" value={collegeName} onChange={e => setCollegeName(e.target.value)} required />
+                              </motion.div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      <div className="ba-field">
+                        <label className="ba-label">Email Address</label>
+                        <input className="ba-input" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                      </div>
+                      <div className="ba-field">
+                        <label className="ba-label">Password</label>
+                        <input className="ba-input" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+                      </div>
+                      <button className="ba-submit" type="submit" disabled={loading}>
+                        {loading ? (isLogin ? 'Signing in…' : 'Creating account…') : isLogin ? 'Sign In →' : 'Create Account →'}
+                      </button>
+                    </form>
+                    <div className="ba-or">OR</div>
+                    <button className="ba-google" onClick={handleGoogleLogin}>
+                      <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/google/google-original.svg" style={{ width: 20, height: 20 }} alt="G" />
+                      Continue with Google
+                    </button>
+                    <div className="ba-switch">
+                      {isLogin ? "New to Bartr? " : "Already have an account? "}
+                      <button onClick={() => { setIsLogin(!isLogin); setError(null); }}>{isLogin ? 'Create account' : 'Sign in'}</button>
+                    </div>
+                    <div className="ba-terms" style={{ marginTop: 16 }}>
+                      By continuing, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                    </div>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
+
 
 // --- CHAT BOX ---
 const ChatBox = ({ application, user, gigTitle, onBack }) => {
@@ -4101,6 +4126,169 @@ const Footer = ({ setPage }) => {
   );
 };
 
+
+// --- PRE-LOGIN EXPLORE SECTION (Clone-style) ---
+const PreLoginExplore = ({ onAuth }) => {
+  const [gigs, setGigs] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [loading, setLoading] = useState(true);
+
+  const categories = ['All', 'Tech', 'Manual', 'Creative', 'Delivery'];
+  const catColors = { Tech: '#3b82f6', Manual: '#ef4444', Creative: '#a855f7', Delivery: '#22c55e', All: '#0f172a' };
+
+  useEffect(() => {
+    const fetchGigs = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('gigs')
+        .select('id, title, category, price, location, created_at')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(12);
+      if (data) setGigs(data);
+      setLoading(false);
+    };
+    fetchGigs();
+  }, []);
+
+  const filtered = activeCategory === 'All' ? gigs : gigs.filter(g => g.category === activeCategory);
+
+  return (
+    <section style={{ background: '#0f172a', padding: '80px 0', position: 'relative', overflow: 'hidden' }}>
+      {/* Background glow */}
+      <div style={{ position: 'absolute', top: '-120px', left: '50%', transform: 'translateX(-50%)', width: '700px', height: '400px', background: 'rgba(239,68,68,0.08)', filter: 'blur(100px)', pointerEvents: 'none', borderRadius: '50%' }} />
+
+      <div className="container mx-auto px-6 md:px-8" style={{ position: 'relative', zIndex: 1 }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', padding: '6px 18px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '20px' }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+            Live in India
+          </motion.div>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+            style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 900, color: '#fff', letterSpacing: '-2px', lineHeight: 1.05, marginBottom: '12px' }}
+          >
+            Tasks Near You, <span style={{ color: '#ef4444' }}>Right Now</span>
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.15 }}
+            style={{ color: 'rgba(255,255,255,0.45)', fontSize: '16px', fontWeight: 500 }}
+          >
+            Browse active tasks. Sign up to apply or post your own.
+          </motion.p>
+        </div>
+
+        {/* Category filter chips */}
+        <motion.div
+          initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '40px' }}
+        >
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              style={{
+                padding: '8px 18px', borderRadius: '999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', transition: 'all 0.18s',
+                background: activeCategory === cat ? (catColors[cat] || '#ef4444') : 'rgba(255,255,255,0.07)',
+                color: activeCategory === cat ? '#fff' : 'rgba(255,255,255,0.55)',
+                border: activeCategory === cat ? `2px solid ${catColors[cat] || '#ef4444'}` : '2px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </motion.div>
+
+        {/* Gig Cards Grid */}
+        {loading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '20px', height: '160px', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
+            No active tasks in this category yet.
+          </div>
+        ) : (
+          <motion.div
+            initial="hidden" whileInView="visible" viewport={{ once: true }}
+            variants={{ visible: { transition: { staggerChildren: 0.06 } } }}
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '16px' }}
+          >
+            {filtered.slice(0, 9).map((gig, i) => {
+              const color = catColors[gig.category] || '#ef4444';
+              const timeAgo = (d) => { const s = Math.floor((Date.now() - new Date(d)) / 1000); return s < 3600 ? `${Math.floor(s/60)}m ago` : s < 86400 ? `${Math.floor(s/3600)}h ago` : `${Math.floor(s/86400)}d ago`; };
+              return (
+                <motion.div
+                  key={gig.id}
+                  variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+                  whileHover={{ y: -6, transition: { duration: 0.2 } }}
+                  onClick={() => onAuth('signup')}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '20px', padding: '20px', cursor: 'pointer', transition: 'border-color 0.2s',
+                    position: 'relative', overflow: 'hidden'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = `${color}55`}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}
+                >
+                  {/* Category dot + time */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <span style={{ background: `${color}22`, color: color, border: `1px solid ${color}44`, borderRadius: '999px', padding: '3px 10px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {gig.category || 'General'}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{timeAgo(gig.created_at)}</span>
+                  </div>
+
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {gig.title}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'rgba(255,255,255,0.4)', fontSize: '12px', fontWeight: 600 }}>
+                      <MapPin size={12} />
+                      {gig.location || 'India'}
+                    </div>
+                    <div style={{ fontWeight: 900, fontSize: '16px', color: color }}>{gig.price || '—'}</div>
+                  </div>
+
+                  {/* Hover CTA */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 0}
+                  >
+                    <span style={{ background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: '14px', padding: '10px 24px', borderRadius: '999px', border: '2px solid rgba(255,255,255,0.2)' }}>Sign up to apply →</span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
+
+        {/* Bottom CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          style={{ textAlign: 'center', marginTop: '48px' }}
+        >
+          <motion.button
+            whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.97 }}
+            onClick={() => onAuth('signup')}
+            style={{ background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: '16px', padding: '16px 40px', borderRadius: '999px', border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', boxShadow: '0 12px 40px rgba(239,68,68,0.3)' }}
+          >
+            Join Bartr — It's Free →
+          </motion.button>
+          <div style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>No credit card required</div>
+        </motion.div>
+      </div>
+    </section>
+  );
+};
 // --- LANDING PAGE ---
 function LandingPage({ setPage, isLoggedIn, onAuth, onLogout }) {
   const [scrolled, setScrolled] = useState(false);
@@ -4166,8 +4354,33 @@ function LandingPage({ setPage, isLoggedIn, onAuth, onLogout }) {
             </motion.h1>
 
             <motion.p variants={fadeInUp} className="text-lg md:text-3xl text-slate-600 font-medium leading-relaxed max-w-[750px] mb-10 opacity-80 px-1 md:px-0">
-              Bartr is India's hyperlocal platform for workers, businesses, and individuals to exchange services, gigs, and opportunities — instantly and transparently.
+              India's hyperlocal platform — post tasks, find help, earn money nearby.
             </motion.p>
+
+            {/* Clone-style task pills */}
+            <motion.div variants={fadeInUp} className="flex flex-wrap gap-2 mb-10">
+              {['📚 Tutoring','🌿 Garden Clean','🍳 Home Cooking','🔧 Vehicle Tow','❤️ Senior Care','📦 Moving Help','🛒 Errands','💻 Tech Help','🎨 Design'].map(t => (
+                <span key={t} style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '999px', padding: '6px 14px', fontSize: '13px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>✓ {t}</span>
+              ))}
+            </motion.div>
+
+            {/* CTA Buttons */}
+            <motion.div variants={fadeInUp} className="flex flex-wrap gap-4 items-center">
+              <motion.button
+                whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}
+                onClick={() => onAuth('signup')}
+                className="bg-brand-red text-white border-4 border-black px-8 py-4 rounded-2xl font-black text-lg shadow-[8px_8px_0px_black] uppercase italic"
+              >
+                Get Started →
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}
+                onClick={() => onAuth('login')}
+                className="bg-white text-black border-4 border-black px-8 py-4 rounded-2xl font-black text-lg shadow-[8px_8px_0px_black] uppercase italic"
+              >
+                I have an account
+              </motion.button>
+            </motion.div>
 
           </motion.div>
         </div>
@@ -4196,6 +4409,8 @@ function LandingPage({ setPage, isLoggedIn, onAuth, onLogout }) {
           <span>• NO SPAM</span>
         </div>
       </div>
+      {/* ── PRE-LOGIN EXPLORE (Clone-style) ── */}
+      <PreLoginExplore onAuth={onAuth} />
 
       <section id="how-it-works" ref={roadmapRef} className="section section-bg-alt relative py-24 md:py-32 overflow-hidden">
         <FloatingIconsBackground />
