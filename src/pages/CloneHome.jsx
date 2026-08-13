@@ -15,6 +15,18 @@ export default function CloneHome({ user, setPage }) {
     fetchMyTasks();
   }, [user]);
 
+  const updateTaskStatus = async (taskId, newStatus) => {
+    const { error } = await supabase.from('gigs').update({ status: newStatus }).eq('id', taskId);
+    if (!error) setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+  };
+
+  const deleteTask = async (taskId, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this task?")) return;
+    const { error } = await supabase.from('gigs').delete().eq('id', taskId);
+    if (!error) setTasks(tasks.filter(t => t.id !== taskId));
+  };
+
   const activeTasks = tasks.filter(t => t.status === 'Active');
   const doneTasks = tasks.filter(t => t.status === 'Completed');
   const displayTasks = filter === 'all' ? tasks : filter === 'active' ? activeTasks : doneTasks;
@@ -86,7 +98,7 @@ export default function CloneHome({ user, setPage }) {
           </div>
         ) : (
           displayTasks.map(task => (
-            <div key={task.id} className="card" style={{ marginBottom: '16px', padding: '16px', cursor: 'pointer' }} onClick={() => {}}> 
+            <div key={task.id} className="card" style={{ marginBottom: '16px', padding: '16px' }}> 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <span style={{ fontSize: '10px', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{task.category}</span>
@@ -95,10 +107,18 @@ export default function CloneHome({ user, setPage }) {
                 </div>
                 <div style={{ fontWeight: 800, color: 'var(--lime-dark)' }}>₹{task.price}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted)', marginTop: '12px' }}>
-                <span>📍 {task.location}</span>
-                <span style={{ margin: '0 4px' }}>•</span>
-                <span>{task.status}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                  <span>📍 {task.location}</span>
+                  <span style={{ margin: '0 4px' }}>•</span>
+                  <span>{task.status}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {task.status === 'Active' && (
+                    <button className="btn btn-sm" style={{ background: 'var(--lime-dark)', color: 'white', padding: '4px 12px' }} onClick={() => updateTaskStatus(task.id, 'Completed')}>Mark Done ✓</button>
+                  )}
+                  <button className="btn btn-sm" style={{ background: 'var(--red)', color: 'white', padding: '4px 12px' }} onClick={(e) => deleteTask(task.id, e)}>Delete</button>
+                </div>
               </div>
             </div>
           ))

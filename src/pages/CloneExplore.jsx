@@ -1,27 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
-export default function CloneExplore({ setPage }) {
+export default function CloneExplore({ setPage, onApply, user }) {
   const [view, setView] = useState('list');
   const [filter, setFilter] = useState('all');
 
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [appliedTaskIds, setAppliedTaskIds] = useState([]);
   
   useEffect(() => {
     const fetchTasks = async () => {
       // In explore, we want tasks posted by others. If user is null (guest), show all.
-      let query = supabase.from('gigs').select('*').order('created_at', { ascending: false });
+      let query = supabase.from('gigs').select('*').eq('status', 'Active').order('created_at', { ascending: false });
       
       const { data } = await query;
       if (data) {
-        // We'll filter out the user's own tasks locally for simplicity (could also use .neq in query if user exists)
-        // Wait, better to just show all for now since guests can explore too, and it's nice to see your own tasks in the feed for testing!
         setTasks(data);
-        
-        // Extract unique categories
         const cats = Array.from(new Set(data.map(t => t.category).filter(Boolean)));
         setCategories(cats);
+      }
+      
+      // If user is logged in, fetch their applications
+      if (user) {
+        const { data: apps } = await supabase.from('gig_applications').select('gig_id').eq('applicant_id', user.id);
+        if (apps) {
+          setAppliedTaskIds(apps.map(a => a.gig_id));
+        }
       }
     };
     fetchTasks();
@@ -69,21 +74,37 @@ export default function CloneExplore({ setPage }) {
             {displayTasks.length === 0 ? (
               <div className="empty-state"><div className="empty-state-icon">🔍</div><div className="empty-state-title">No tasks found</div><div className="empty-state-desc">Try a different category filter.</div></div>
             ) : (
-              displayTasks.map(task => (
-                <div key={task.id} className="card" style={{ marginBottom: '16px', padding: '16px', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <span style={{ fontSize: '10px', background: 'var(--lime-pale)', color: 'var(--lime-dark)', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>{task.category}</span>
-                      <div style={{ fontWeight: 800, fontSize: '16px', marginTop: '4px' }}>{task.title}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', whiteSpace: 'pre-wrap' }}>{task.description}</div>
+              displayTasks.map(task => {
+                const isApplied = appliedTaskIds.includes(task.id);
+                return (
+                  <div key={task.id} className="card" style={{ marginBottom: '16px', padding: '16px', cursor: isApplied ? 'default' : 'pointer', opacity: isApplied ? 0.7 : 1 }} onClick={() => !isApplied && onApply && onApply(task)}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <span style={{ fontSize: '10px', background: 'var(--lime-pale)', color: 'var(--lime-dark)', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>{task.category}</span>
+                        <div style={{ fontWeight: 800, fontSize: '16px', marginTop: '4px' }}>{task.title}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', whiteSpace: 'pre-wrap' }}>{task.description}</div>
+                      </div>
+                      <div style={{ fontWeight: 800, color: 'var(--lime-dark)' }}>₹{task.price}</div>
                     </div>
-                    <div style={{ fontWeight: 800, color: 'var(--lime-dark)' }}>₹{task.price}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                        <span>📍 {task.location}</span>
+                      </div>
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: isApplied ? 'var(--surface-2)' : 'var(--dark)', 
+                          color: isApplied ? 'var(--text-secondary)' : 'white',
+                          border: isApplied ? '1px solid var(--border)' : 'none',
+                          cursor: isApplied ? 'default' : 'pointer'
+                        }}
+                      >
+                        {isApplied ? 'Applied ✓' : 'Apply'}
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted)', marginTop: '12px' }}>
-                    <span>📍 {task.location}</span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

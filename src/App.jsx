@@ -2841,6 +2841,7 @@ function AppInner() {
   const [verifiedMessage, setVerifiedMessage] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [subscriptionPendingPage, setSubscriptionPendingPage] = useState(null);
+  const [subscriptionPendingGig, setSubscriptionPendingGig] = useState(null);
 
   const handlePageChange = (page) => {
     if (page === currentPage) return;
@@ -2961,7 +2962,7 @@ function AppInner() {
     setShowAuthModal(true);
   };
 
-  const handleSubscriptionComplete = () => {
+  const handleSubscriptionComplete = async () => {
     setShowSubscriptionModal(false);
     if (subscriptionPendingPage) {
       // Re-trigger the page change, bypassing the gate since they now have a sub
@@ -2972,7 +2973,35 @@ function AppInner() {
         setSubscriptionPendingPage(null);
         setTimeout(() => setIsPageLoading(false), 400);
       }, 500);
+    } else if (subscriptionPendingGig) {
+      await submitApplication(subscriptionPendingGig);
+      setSubscriptionPendingGig(null);
     }
+  };
+
+  const submitApplication = async (gig) => {
+    if (!user) return;
+    const { error } = await supabase.from('gig_applications').insert([{ gig_id: gig.id, applicant_id: user.id }]);
+    if (error) {
+      console.error('Failed to apply:', error.message);
+      alert('Error applying: ' + error.message);
+    } else {
+      alert('Application sent successfully! Check your Messages tab.');
+      setCurrentPage('chat');
+    }
+  };
+
+  const handleApply = async (gig) => {
+    if (!isLoggedIn || !user) {
+      openAuth('login');
+      return;
+    }
+    if (!checkSubscriptionActive(user)) {
+      setSubscriptionPendingGig(gig);
+      setShowSubscriptionModal(true);
+      return;
+    }
+    await submitApplication(gig);
   };
 
   const handleLogout = async () => {
@@ -3014,7 +3043,7 @@ function AppInner() {
       {currentPage === 'onboarding' && <CloneOnboarding setPage={handlePageChange} setBartrMode={setBartrMode} />}
       {currentPage === 'login' && <CloneLogin setPage={handlePageChange} bartrMode={bartrMode} />}
       {currentPage === 'home' && <CloneHome setPage={handlePageChange} user={user} />}
-      {currentPage === 'explore' && <CloneExplore setPage={handlePageChange} />}
+      {currentPage === 'explore' && <CloneExplore setPage={handlePageChange} onApply={handleApply} user={user} />}
       {currentPage === 'post-task' && <ClonePostTask setPage={handlePageChange} user={user} />}
       {currentPage === 'chat' && <CloneChat setPage={handlePageChange} user={user} />}
       {currentPage === 'profile' && <CloneProfile setPage={handlePageChange} user={user} bartrMode={bartrMode} setBartrMode={setBartrMode} logout={handleLogout} />}
@@ -3038,7 +3067,7 @@ function AppInner() {
 
       <SubscriptionModal 
         isOpen={showSubscriptionModal} 
-        onClose={() => { setShowSubscriptionModal(false); setSubscriptionPendingPage(null); }} 
+        onClose={() => { setShowSubscriptionModal(false); setSubscriptionPendingPage(null); setSubscriptionPendingGig(null); }} 
         user={user} 
         isLoggedIn={isLoggedIn} 
         onAuth={openAuth} 
