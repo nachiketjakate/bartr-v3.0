@@ -83,3 +83,18 @@ CREATE INDEX IF NOT EXISTS idx_otp_store_expires ON otp_store(expires_at);
 
 -- Verification:
 -- SELECT * FROM otp_store;
+
+-- ============================================================
+-- Migration: Coupon Redemptions table
+-- Required for validating and redeeming free subscription coupons.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS coupon_redemptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  coupon_code TEXT NOT NULL,
+  email TEXT NOT NULL,
+  redeemed_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(email, coupon_code)
+);
+
+ALTER TABLE coupon_redemptions ENABLE ROW LEVEL SECURITY;

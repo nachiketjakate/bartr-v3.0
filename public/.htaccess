@@ -1,4 +1,6 @@
 Options -Indexes
+
+# ── Access Control ──────────────────────────────────────────
 <IfModule mod_authz_core.c>
   Require all granted
 </IfModule>
@@ -7,12 +9,50 @@ Options -Indexes
   Allow from all
 </IfModule>
 
+# ── Block dot-files except .htaccess itself ──────────────────
+<FilesMatch "^\.(?!htaccess)">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# ── SPA Routing (React Router) ───────────────────────────────
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /index.html [L]
+
+  # Serve existing files/dirs/symlinks as-is
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d [OR]
+  RewriteCond %{REQUEST_FILENAME} -l
+  RewriteRule ^ - [L]
+
+  # Everything else → index.html (React Router handles it)
+  RewriteRule ^ /index.html [L]
+</IfModule>
+
+# ── MIME Types ───────────────────────────────────────────────
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType text/css               .css
+  AddType image/svg+xml          .svg
+  AddType image/webp             .webp
+  AddType image/png              .png
+  AddType font/woff2             .woff2
+</IfModule>
+
+# ── Caching ──────────────────────────────────────────────────
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html             "access plus 0 seconds"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css              "access plus 1 year"
+  ExpiresByType image/png             "access plus 1 year"
+  ExpiresByType image/webp            "access plus 1 year"
+  ExpiresByType image/svg+xml        "access plus 1 year"
+  ExpiresByType font/woff2           "access plus 1 year"
 </IfModule>

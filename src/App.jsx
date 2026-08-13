@@ -1,9 +1,18 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useContext, createContext } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
 import { TypeAnimation } from 'react-type-animation';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { LocationPickerMap, GigLocationMap } from './OSMComponents';
 import { FileUploadButton, FilePreview, MessageAttachment, uploadFile } from './FileUpload';
+import CloneLanding from './pages/CloneLanding';
+import CloneOnboarding from './pages/CloneOnboarding';
+import CloneLogin from './pages/CloneLogin';
+import CloneHome from './pages/CloneHome';
+import CloneExplore from './pages/CloneExplore';
+import CloneNavbar from './pages/CloneNavbar';
+import ClonePostTask from './pages/ClonePostTask';
+import CloneChat from './pages/CloneChat';
+import CloneProfile from './pages/CloneProfile';
 import {
   MapPin,
   ArrowRight,
@@ -20,6 +29,76 @@ import {
   Wrench, Monitor, Hammer, Scissors, Car, Camera, Paintbrush, Briefcase, Code, Music, Search,
   User, Lock, Mail, X, Edit2, Save, FileText, LayoutGrid, Calendar, Flame, Filter, Plus, Activity, Award, Star, Clock, AlertCircle, GraduationCap, ChevronLeft, Send
 } from 'lucide-react';
+
+
+// --- TOAST NOTIFICATION SYSTEM ---
+const ToastContext = createContext(null);
+
+const ToastItem = ({ toast, onRemove }) => {
+  const colorMap = {
+    error:   { bg: '#ef4444', shadow: '#b91c1c', icon: '\u274c' },
+    success: { bg: '#10b981', shadow: '#065f46', icon: '\u2705' },
+    info:    { bg: '#1e293b', shadow: '#000',     icon: '\u2139\ufe0f' },
+    warning: { bg: '#f59e0b', shadow: '#92400e',  icon: '\u26a0\ufe0f' },
+  };
+  const c = colorMap[toast.type] || colorMap.info;
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 80, scale: 0.9 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 80, scale: 0.85 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      role="alert"
+      aria-live="polite"
+      onClick={() => onRemove(toast.id)}
+      style={{
+        background: c.bg, color: 'white', border: '3px solid rgba(0,0,0,0.2)',
+        borderRadius: '16px', padding: '0.9rem 1.1rem', fontWeight: '800',
+        fontSize: '0.88rem', boxShadow: `4px 4px 0px ${c.shadow}`,
+        display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
+        cursor: 'pointer', lineHeight: '1.45', wordBreak: 'break-word',
+      }}
+    >
+      <span style={{ fontSize: '1rem', flexShrink: 0 }}>{c.icon}</span>
+      <span style={{ flex: 1 }}>{toast.message}</span>
+    </motion.div>
+  );
+};
+
+const ToastContainer = ({ toasts, onRemove }) => (
+  <div style={{
+    position: 'fixed', top: '1.25rem', right: '1.25rem', zIndex: 999999,
+    display: 'flex', flexDirection: 'column', gap: '0.65rem',
+    maxWidth: '360px', width: 'calc(100vw - 2.5rem)', pointerEvents: 'none',
+  }}>
+    <AnimatePresence>
+      {toasts.map(t => (
+        <div key={t.id} style={{ pointerEvents: 'auto' }}>
+          <ToastItem toast={t} onRemove={onRemove} />
+        </div>
+      ))}
+    </AnimatePresence>
+  </div>
+);
+
+const ToastProvider = ({ children }) => {
+  const [toasts, setToasts] = useState([]);
+  const removeToast = useCallback((id) => setToasts(prev => prev.filter(t => t.id !== id)), []);
+  const showToast = useCallback((message, type = 'info', duration = 4500) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev.slice(-4), { id, message, type }]);
+    setTimeout(() => removeToast(id), duration);
+  }, [removeToast]);
+  return (
+    <ToastContext.Provider value={showToast}>
+      {children}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </ToastContext.Provider>
+  );
+};
+
+const useToast = () => useContext(ToastContext);
+// --- END TOAST SYSTEM ---
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -285,6 +364,7 @@ const Navbar = ({ scrolled, setPage, isDark, isLoggedIn, onAuth, onLogout, curre
 
 // --- POST GIG MODAL ---
 const PostGigModal = ({ isOpen, onClose, user, onPostSuccess, categories }) => {
+  const showToast = useToast();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Manual');
   const [price, setPrice] = useState('');
@@ -303,11 +383,11 @@ const PostGigModal = ({ isOpen, onClose, user, onPostSuccess, categories }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login to post a gig!");
+      showToast('Please login to post a gig!', 'error'); return;
       return;
     }
     if (!location) {
-      alert("Please select a location on the map!");
+      showToast('Please pin a location on the map first!', 'warning'); return;
       return;
     }
     setLoading(true);
@@ -318,6 +398,8 @@ const PostGigModal = ({ isOpen, onClose, user, onPostSuccess, categories }) => {
       price,
       description,
       location,
+      latitude: coordinates ? coordinates[0] : null,
+      longitude: coordinates ? coordinates[1] : null,
       status: 'Active'
     };
 
@@ -328,7 +410,7 @@ const PostGigModal = ({ isOpen, onClose, user, onPostSuccess, categories }) => {
       onClose();
       setTitle(''); setPrice(''); setDescription(''); setLocation(''); setCoordinates(null);
     } else {
-      alert("Error posting gig: " + error.message);
+      showToast('Error posting gig: ' + error.message, 'error');
     }
   };
 
@@ -610,7 +692,7 @@ const GigsPage = ({ setPage, isLoggedIn, onAuth, onLogout, currentPage, user }) 
     if (!error) {
       setMyApplications(prev => [...prev, gig.id]);
     } else {
-      alert("Failed to apply: " + error.message);
+      console.error('Failed to apply:', error.message);
     }
     setApplyingGigId(null);
   };
@@ -979,8 +1061,6 @@ export const checkSubscriptionActive = (user) => {
 // Set VITE_API_URL only if your backend is on a different domain/port.
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-const FREE_COUPONS = ['LEMON', 'ADVVIDARBHA']; // 3 months free, single use per email
-const TESTER_COUPON = 'TESTER2024'; // Free access for testers
 
 const SUBSCRIPTION_PLANS = [
   { id: '3months', name: '3 Months Pro', durationMonths: 3, originalPrice: 199, discountedPrice: 59, desc: 'Perfect for starters looking to test the India market.' },
@@ -1021,8 +1101,8 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', alignItems: 'stretch', marginBottom: '2rem' }}>
       {SUBSCRIPTION_PLANS.map((plan) => {
         const originalPrice = plan.originalPrice;
-        const isTesterFree = couponApplied && coupon === TESTER_COUPON;
-        const isFreeCoupon = couponApplied && FREE_COUPONS.includes(coupon) && plan.id === '3months';
+        const isTesterFree = couponApplied && couponType === 'tester';
+        const isFreeCoupon = couponApplied && couponType === 'free' && plan.id === '3months';
         const price = (isTesterFree || isFreeCoupon) ? 0 : originalPrice;
         return (
           <motion.div
@@ -1111,9 +1191,9 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
         </form>
         {couponApplied && (
           <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#10b981', fontWeight: '900', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-            {coupon === TESTER_COUPON
+            {couponType === 'tester'
               ? '🎉 Tester code applied — FREE ACCESS for all plans!'
-              : FREE_COUPONS.includes(coupon)
+              : couponType === 'free'
               ? `🎉 ${coupon} applied — 3 months FREE subscription activated!`
               : 'Coupon applied!'}
           </motion.div>
@@ -1127,8 +1207,10 @@ const SubscriptionPlansContent = ({ coupon, setCoupon, couponApplied, couponErro
 );
 
 const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, onClose, isOpen }) => {
+  const showToast = useToast();
   const [coupon, setCoupon] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
+  const [couponType, setCouponType] = useState('');
   const [couponError, setCouponError] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -1136,6 +1218,7 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
   const resetCouponState = () => {
     setCoupon('');
     setCouponApplied(false);
+    setCouponType('');
     setCouponError('');
   };
 
@@ -1145,34 +1228,42 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
 
   const handleApplyCoupon = async (e) => {
     e.preventDefault();
-    if (FREE_COUPONS.includes(coupon)) {
-      if (!isLoggedIn || !user) {
-        setCouponError('Please log in before applying this coupon.');
+    if (!coupon.trim()) return;
+    setCouponError('');
+    setCouponApplied(false);
+    setCouponType('');
+    // Try tester coupon via backend (code never in frontend)
+    try {
+      const testerRes = await fetch(`${API_URL}/validate-tester-coupon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coupon }),
+      });
+      const testerData = await testerRes.json();
+      if (testerData.success) {
+        if (!isLoggedIn || !user) { setCouponError('Please log in before applying this coupon.'); return; }
+        setCouponApplied(true);
+        setCouponType('tester');
         return;
       }
-      try {
-        const res = await fetch(`${API_URL}/validate-coupon`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email, coupon }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setCouponApplied(true);
-          setCouponError('');
-        } else {
-          setCouponError(data.error || 'Coupon already used.');
-          setCouponApplied(false);
-        }
-      } catch {
-        setCouponError('Could not validate coupon. Try again.');
+    } catch { /* not a tester coupon */ }
+    // Try free coupons via backend
+    if (!isLoggedIn || !user) { setCouponError('Please log in before applying a coupon.'); return; }
+    try {
+      const res = await fetch(`${API_URL}/validate-coupon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, coupon }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCouponApplied(true);
+        setCouponType('free');
+      } else {
+        setCouponError(data.error || 'Invalid coupon code.');
       }
-    } else if (coupon === TESTER_COUPON) {
-      setCouponApplied(true);
-      setCouponError('');
-    } else {
-      setCouponError('Invalid coupon code.');
-      setCouponApplied(false);
+    } catch {
+      setCouponError('Could not validate coupon. Try again.');
     }
   };
 
@@ -1184,9 +1275,9 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
     setLoading(true);
 
     // Free coupons (LEMON, ADVVIDARBHA): 3 months free, single use — bypass payment (only for 3months plan)
-    if (couponApplied && FREE_COUPONS.includes(coupon)) {
+    if (couponApplied && couponType === 'free') {
       if (plan.id !== '3months') {
-        alert('This coupon is only valid for the 3 Months Pro plan.');
+        showToast('This coupon is only valid for the 3 Months Pro plan.', 'warning');
         setLoading(false);
         return;
       }
@@ -1194,22 +1285,11 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
         const redeemRes = await fetch(`${API_URL}/redeem-coupon`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email, coupon }),
+          body: JSON.stringify({ email: user.email, coupon, userId: user.id }),
         });
         const redeemData = await redeemRes.json();
         if (!redeemData.success) throw new Error(redeemData.error || 'Coupon redemption failed.');
 
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 3); // 3 months free
-        const { error } = await supabase.auth.updateUser({
-          data: {
-            is_subscribed: true,
-            subscription_plan: `3 Months Pro (${coupon})`,
-            subscription_expiry: expiryDate.toISOString(),
-            coupon_used: coupon,
-          },
-        });
-        if (error) throw error;
         const { data: { user: updatedUser } } = await supabase.auth.getUser();
         if (updatedUser) window.dispatchEvent(new CustomEvent('subscription_updated'));
         setPaymentSuccess(true);
@@ -1222,26 +1302,22 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
         setLoading(false);
         return;
       } catch (err) {
-        alert(err.message || 'Error activating free subscription.');
+        showToast(err.message || 'Error activating free subscription.', 'error');
         setLoading(false);
         return;
       }
     }
 
     // TESTER2024: Free access for testers — bypass payment
-    if (couponApplied && coupon === TESTER_COUPON) {
+    if (couponApplied && couponType === 'tester') {
       try {
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + plan.durationMonths);
-        const { error } = await supabase.auth.updateUser({
-          data: {
-            is_subscribed: true,
-            subscription_plan: plan.name + ' (Tester)',
-            subscription_expiry: expiryDate.toISOString(),
-            tester_access: true,
-          },
+        const activateRes = await fetch(`${API_URL}/activate-tester-subscription`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coupon, userId: user.id, planId: plan.id }),
         });
-        if (error) throw error;
+        const activateData = await activateRes.json();
+        if (!activateData.success) throw new Error(activateData.error || 'Tester activation failed.');
         const { data: { user: updatedUser } } = await supabase.auth.getUser();
         if (updatedUser) window.dispatchEvent(new CustomEvent('subscription_updated'));
         setPaymentSuccess(true);
@@ -1254,7 +1330,7 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
         setLoading(false);
         return;
       } catch (err) {
-        alert(err.message || 'Error activating tester subscription.');
+        showToast(err.message || 'Error activating tester subscription.', 'error');
         setLoading(false);
         return;
       }
@@ -1266,7 +1342,8 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planId: plan.id,
-          couponCode: couponApplied ? coupon : '',
+          userId: user.id,
+          userEmail: user.email,
         }),
       });
       const orderData = await orderRes.json();
@@ -1292,6 +1369,8 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
+                userId: user.id,
+                planId: plan.id,
               }),
             });
             const verifyData = await verifyRes.json();
@@ -1299,18 +1378,7 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
               throw new Error(verifyData.error || 'Payment verification failed.');
             }
 
-            const expiryDate = new Date();
-            expiryDate.setMonth(expiryDate.getMonth() + orderData.durationMonths);
-            const { error } = await supabase.auth.updateUser({
-              data: {
-                is_subscribed: true,
-                subscription_plan: orderData.planName,
-                subscription_expiry: expiryDate.toISOString(),
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-              },
-            });
-            if (error) throw error;
+            // Backend activated subscription — refresh local session
             const { data: { user: updatedUser } } = await supabase.auth.getUser();
             if (updatedUser) window.dispatchEvent(new CustomEvent('subscription_updated'));
             setPaymentSuccess(true);
@@ -1321,7 +1389,7 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
               onClose?.();
             }, 2500);
           } catch (err) {
-            alert(err.message || 'Error activating subscription. Contact support with Payment ID: ' + response.razorpay_payment_id);
+            showToast(err.message || 'Error activating subscription. Contact support with Payment ID: ' + response.razorpay_payment_id, 'error', 8000);
           } finally {
             setLoading(false);
           }
@@ -1338,12 +1406,12 @@ const useSubscriptionCheckout = ({ user, isLoggedIn, onAuth, onPaymentSuccess, o
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (err) {
-      alert(err.message || 'Failed to start Razorpay checkout.');
+      showToast(err.message || 'Failed to start Razorpay checkout.', 'error');
       setLoading(false);
     }
   };
 
-  return { coupon, setCoupon, couponApplied, couponError, loading, paymentSuccess, handleApplyCoupon, handleSubscribe };
+  return { coupon, setCoupon, couponApplied, couponType, couponError, loading, paymentSuccess, handleApplyCoupon, handleSubscribe };
 };
 
 // --- SUBSCRIPTION MODAL (post gig / apply gate) ---
@@ -2314,6 +2382,7 @@ const loadRazorpayScript = () => {
 };
 
 const PitchFireRegistration = ({ setPage, user }) => {
+  const showToast = useToast();
   const [step, setStep] = useState(1);
   const [teamData, setTeamData] = useState({ teamName: '', member1: '', member2: '', idea: '' });
   const [email, setEmail] = useState('');
@@ -2337,10 +2406,10 @@ const PitchFireRegistration = ({ setPage, user }) => {
       if (data.success) {
         setOtpSent(true);
       } else {
-        alert(data.error);
+        showToast(data.error || 'OTP error.', 'error');
       }
     } catch (err) {
-      alert("Failed to connect to backend server. Make sure node server.js is running!");
+      showToast('Failed to connect to backend server. Make sure node server.js is running!', 'error');
     } finally {
       setLoading('');
     }
@@ -2359,10 +2428,10 @@ const PitchFireRegistration = ({ setPage, user }) => {
       if (data.success) {
         setStep(3);
       } else {
-        alert("Invalid or Expired OTP: " + data.error);
+        showToast('Invalid or Expired OTP: ' + data.error, 'error');
       }
     } catch (err) {
-      alert("Failed to connect to server");
+      showToast('Failed to connect to server', 'error');
     } finally {
       setLoading('');
     }
@@ -2372,7 +2441,7 @@ const PitchFireRegistration = ({ setPage, user }) => {
     setLoading('Initializing payment gateway...');
     const isScriptLoaded = await loadRazorpayScript();
     if (!isScriptLoaded) {
-      alert("Failed to load Razorpay Checkout SDK. Check your internet connection.");
+      showToast('Failed to load Razorpay Checkout SDK. Check your internet connection.', 'error');
       setLoading('');
       return;
     }
@@ -2438,11 +2507,11 @@ const PitchFireRegistration = ({ setPage, user }) => {
 
               setStep(4);
             } else {
-              alert("Payment verification failed: " + (verifyData.error || "Invalid Signature"));
+              showToast('Payment verification failed: ' + (verifyData.error || 'Invalid Signature'), 'error');
             }
           } catch (err) {
             console.error('Registration/Verification Error:', err);
-            alert('Something went wrong during payment verification. Please reach out to Bartr support.');
+            showToast('Something went wrong during payment verification. Please reach out to Bartr support.', 'error', 8000);
           } finally {
             setLoading('');
           }
@@ -2458,13 +2527,13 @@ const PitchFireRegistration = ({ setPage, user }) => {
 
       const rzpObj = new window.Razorpay(options);
       rzpObj.on('payment.failed', function (resp) {
-        alert("Payment failed: " + resp.error.description);
+        showToast('Payment failed: ' + resp.error.description, 'error');
       });
       rzpObj.open();
 
     } catch (err) {
       console.error('Razorpay Integration Error:', err);
-      alert('Failed to initialize checkout. Please check if VITE_API_URL is correct or contact support.');
+      showToast('Failed to initialize checkout. Please check if VITE_API_URL is correct or contact support.', 'error');
       setLoading('');
     }
   };
@@ -2753,7 +2822,16 @@ VITE_API_URL=http://localhost:3001`}
 
 // --- MAIN ROUTER APP ---
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('home');
+  return (
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
+  );
+}
+
+function AppInner() {
+  const [currentPage, setCurrentPage] = useState('landing');
+  const [bartrMode, setBartrMode] = useState('hire');
   const [user, setUser] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
@@ -2761,9 +2839,19 @@ export default function App() {
   const [showInboxModal, setShowInboxModal] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [verifiedMessage, setVerifiedMessage] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionPendingPage, setSubscriptionPendingPage] = useState(null);
 
   const handlePageChange = (page) => {
     if (page === currentPage) return;
+
+    // Subscription Gate for posting tasks
+    if (page === 'post-task' && isLoggedIn && !checkSubscriptionActive(user)) {
+      setSubscriptionPendingPage(page);
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     setIsPageLoading(true);
     setTimeout(() => {
       setCurrentPage(page);
@@ -2798,6 +2886,9 @@ export default function App() {
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
+        const metaMode = session.user.user_metadata?.bartr_mode || 'hire';
+        setBartrMode(metaMode);
+        setCurrentPage(prev => ['landing', 'onboarding', 'login'].includes(prev) ? (metaMode === 'earn' ? 'explore' : 'home') : prev);
       }
     });
 
@@ -2808,6 +2899,24 @@ export default function App() {
 
       if (session && event === 'SIGNED_IN') {
         setShowAuthModal(false);
+        const metaMode = session.user.user_metadata?.bartr_mode || 'hire';
+        setBartrMode(metaMode);
+        setCurrentPage(prev => ['landing', 'onboarding', 'login'].includes(prev) ? (metaMode === 'earn' ? 'explore' : 'home') : prev);
+        
+        // Sync backend: Ensure user_profiles row exists
+        const meta = session.user.user_metadata || {};
+        supabase.from('user_profiles').select('id').eq('id', session.user.id).single().then(({ data }) => {
+          if (!data) {
+            supabase.from('user_profiles').insert({
+              id: session.user.id,
+              full_name: meta.full_name || meta.name || 'User',
+              phone: meta.phone || '',
+              role: meta.role || 'freelancer'
+            }).then(({error}) => {
+               if (error) console.error("Profile sync error:", error);
+            });
+          }
+        });
         
         // If the user was created less than 15 seconds ago, they just signed up (e.g. via Google OAuth)
         const isNewUser = (Date.now() - new Date(session.user.created_at).getTime()) < 15000;
@@ -2852,6 +2961,20 @@ export default function App() {
     setShowAuthModal(true);
   };
 
+  const handleSubscriptionComplete = () => {
+    setShowSubscriptionModal(false);
+    if (subscriptionPendingPage) {
+      // Re-trigger the page change, bypassing the gate since they now have a sub
+      setIsPageLoading(true);
+      setTimeout(() => {
+        setCurrentPage(subscriptionPendingPage);
+        window.scrollTo(0, 0);
+        setSubscriptionPendingPage(null);
+        setTimeout(() => setIsPageLoading(false), 400);
+      }, 500);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -2861,7 +2984,7 @@ export default function App() {
     
     setUser(null);
     setIsLoggedIn(false);
-    handlePageChange('home');
+    handlePageChange('landing');
     
     // Safely clear any remaining auth items from localStorage
     const keysToRemove = [];
@@ -2886,20 +3009,41 @@ export default function App() {
         {isPageLoading && <PageLoader />}
       </AnimatePresence>
 
-      {currentPage === 'home' && <LandingPage setPage={handlePageChange} isLoggedIn={isLoggedIn} onAuth={openAuth} onLogout={handleLogout} />}
+      {/* CLONE ROUTES */}
+      {currentPage === 'landing' && <CloneLanding setPage={handlePageChange} />}
+      {currentPage === 'onboarding' && <CloneOnboarding setPage={handlePageChange} setBartrMode={setBartrMode} />}
+      {currentPage === 'login' && <CloneLogin setPage={handlePageChange} bartrMode={bartrMode} />}
+      {currentPage === 'home' && <CloneHome setPage={handlePageChange} user={user} />}
+      {currentPage === 'explore' && <CloneExplore setPage={handlePageChange} />}
+      {currentPage === 'post-task' && <ClonePostTask setPage={handlePageChange} user={user} />}
+      {currentPage === 'chat' && <CloneChat setPage={handlePageChange} user={user} />}
+      {currentPage === 'profile' && <CloneProfile setPage={handlePageChange} user={user} bartrMode={bartrMode} setBartrMode={setBartrMode} logout={handleLogout} />}
+
+      {/* RETAINED ROUTES */}
       {currentPage === 'gigs' && <GigsPage setPage={handlePageChange} isLoggedIn={isLoggedIn} onAuth={openAuth} onLogout={handleLogout} currentPage="gigs" user={user} />}
       {currentPage === 'careers' && <CareersPage setPage={handlePageChange} isLoggedIn={isLoggedIn} onAuth={openAuth} onLogout={handleLogout} />}
       {currentPage === 'tri-score' && <TRIScorePage setPage={handlePageChange} isLoggedIn={isLoggedIn} onAuth={openAuth} onLogout={handleLogout} />}
       {currentPage === 'student' && <StudentPage setPage={handlePageChange} isLoggedIn={isLoggedIn} onAuth={openAuth} onLogout={handleLogout} />}
       {currentPage === 'events' && <EventsPage setPage={handlePageChange} isLoggedIn={isLoggedIn} onAuth={openAuth} onLogout={handleLogout} />}
       {currentPage === 'pitch-fire-register' && <PitchFireRegistration setPage={handlePageChange} user={user} />}
-      {currentPage === 'profile' && <UserProfile setPage={handlePageChange} user={user} />}
+      {currentPage === 'old-profile' && <UserProfile setPage={handlePageChange} user={user} />}
       {currentPage === 'welcome' && <WelcomePage setPage={handlePageChange} user={user} />}
       {currentPage === 'subscription' && <SubscriptionPage setPage={handlePageChange} user={user} isLoggedIn={isLoggedIn} onAuth={openAuth} onLogout={handleLogout} />}
+
+      <CloneNavbar currentPage={currentPage} setPage={handlePageChange} />
 
       <AuthModal isOpen={showAuthModal} initialMode={authMode} onClose={() => setShowAuthModal(false)} />
       
       <InboxModal isOpen={showInboxModal} onClose={() => setShowInboxModal(false)} user={user} />
+
+      <SubscriptionModal 
+        isOpen={showSubscriptionModal} 
+        onClose={() => { setShowSubscriptionModal(false); setSubscriptionPendingPage(null); }} 
+        user={user} 
+        isLoggedIn={isLoggedIn} 
+        onAuth={openAuth} 
+        onPaymentSuccess={handleSubscriptionComplete} 
+      />
 
       <AnimatePresence>
         {verifiedMessage && (
@@ -2987,8 +3131,6 @@ const WelcomePage = ({ setPage, user }) => {
     const timer = setTimeout(() => {
       window.history.replaceState(null, null, window.location.pathname);
       setPage('home');
-      // Dispatch custom event to open login modal in App
-      window.dispatchEvent(new CustomEvent('openLoginModal'));
     }, 5000);
     return () => clearTimeout(timer);
   }, [setPage, user]);
@@ -3046,6 +3188,7 @@ const WelcomePage = ({ setPage, user }) => {
 
 // --- USER PROFILE PAGE ---
 const UserProfile = ({ setPage, user }) => {
+  const showToast = useToast();
   const [profile, setProfile] = useState({ full_name: '', phone: '', bio: '', location: '', skills: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -3100,7 +3243,7 @@ const UserProfile = ({ setPage, user }) => {
       setIsEditing(false);
     } else {
       console.error("Profile Save Error:", error);
-      alert("Error saving profile: " + error.message);
+      showToast('Error saving profile: ' + error.message, 'error');
     }
     setLoading(false);
   };
@@ -3681,7 +3824,7 @@ const ChatBox = ({ application, user, gigTitle, onBack }) => {
       setSelectedFile(null);
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
+      console.error('Failed to send message:', error.message);
     } finally {
       setUploading(false);
     }
@@ -4128,7 +4271,7 @@ const Footer = ({ setPage }) => {
 
 
 // --- PRE-LOGIN EXPLORE SECTION (Clone-style) ---
-const PreLoginExplore = ({ onAuth }) => {
+const PreLoginExplore = ({ onAuth, isLoggedIn, setPage }) => {
   const [gigs, setGigs] = useState([]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -4229,7 +4372,7 @@ const PreLoginExplore = ({ onAuth }) => {
                   key={gig.id}
                   variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
                   whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                  onClick={() => onAuth('signup')}
+                  onClick={() => isLoggedIn ? setPage('gigs') : onAuth('signup')}
                   style={{
                     background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: '20px', padding: '20px', cursor: 'pointer', transition: 'border-color 0.2s',
@@ -4263,7 +4406,7 @@ const PreLoginExplore = ({ onAuth }) => {
                     onMouseEnter={e => e.currentTarget.style.opacity = 1}
                     onMouseLeave={e => e.currentTarget.style.opacity = 0}
                   >
-                    <span style={{ background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: '14px', padding: '10px 24px', borderRadius: '999px', border: '2px solid rgba(255,255,255,0.2)' }}>Sign up to apply →</span>
+                    <span style={{ background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: '14px', padding: '10px 24px', borderRadius: '999px', border: '2px solid rgba(255,255,255,0.2)' }}>{isLoggedIn ? 'Explore Gigs →' : 'Sign up to apply →'}</span>
                   </div>
                 </motion.div>
               );
@@ -4272,19 +4415,21 @@ const PreLoginExplore = ({ onAuth }) => {
         )}
 
         {/* Bottom CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-          style={{ textAlign: 'center', marginTop: '48px' }}
-        >
-          <motion.button
-            whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.97 }}
-            onClick={() => onAuth('signup')}
-            style={{ background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: '16px', padding: '16px 40px', borderRadius: '999px', border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', boxShadow: '0 12px 40px rgba(239,68,68,0.3)' }}
+        {!isLoggedIn && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            style={{ textAlign: 'center', marginTop: '48px' }}
           >
-            Join Bartr — It's Free →
-          </motion.button>
-          <div style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>No credit card required</div>
-        </motion.div>
+            <motion.button
+              whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.97 }}
+              onClick={() => onAuth('signup')}
+              style={{ background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: '16px', padding: '16px 40px', borderRadius: '999px', border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer', boxShadow: '0 12px 40px rgba(239,68,68,0.3)' }}
+            >
+              Join Bartr — It's Free →
+            </motion.button>
+            <div style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>No credit card required</div>
+          </motion.div>
+        )}
       </div>
     </section>
   );
@@ -4366,20 +4511,32 @@ function LandingPage({ setPage, isLoggedIn, onAuth, onLogout }) {
 
             {/* CTA Buttons */}
             <motion.div variants={fadeInUp} className="flex flex-wrap gap-4 items-center">
-              <motion.button
-                whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}
-                onClick={() => onAuth('signup')}
-                className="bg-brand-red text-white border-4 border-black px-8 py-4 rounded-2xl font-black text-lg shadow-[8px_8px_0px_black] uppercase italic"
-              >
-                Get Started →
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}
-                onClick={() => onAuth('login')}
-                className="bg-white text-black border-4 border-black px-8 py-4 rounded-2xl font-black text-lg shadow-[8px_8px_0px_black] uppercase italic"
-              >
-                I have an account
-              </motion.button>
+              {!isLoggedIn ? (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}
+                    onClick={() => onAuth('signup')}
+                    className="bg-brand-red text-white border-4 border-black px-8 py-4 rounded-2xl font-black text-lg shadow-[8px_8px_0px_black] uppercase italic"
+                  >
+                    Get Started →
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}
+                    onClick={() => onAuth('login')}
+                    className="bg-white text-black border-4 border-black px-8 py-4 rounded-2xl font-black text-lg shadow-[8px_8px_0px_black] uppercase italic"
+                  >
+                    I have an account
+                  </motion.button>
+                </>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}
+                  onClick={() => setPage('gigs')}
+                  className="bg-brand-red text-white border-4 border-black px-8 py-4 rounded-2xl font-black text-lg shadow-[8px_8px_0px_black] uppercase italic"
+                >
+                  Explore Gigs →
+                </motion.button>
+              )}
             </motion.div>
 
           </motion.div>
@@ -4410,7 +4567,7 @@ function LandingPage({ setPage, isLoggedIn, onAuth, onLogout }) {
         </div>
       </div>
       {/* ── PRE-LOGIN EXPLORE (Clone-style) ── */}
-      <PreLoginExplore onAuth={onAuth} />
+      <PreLoginExplore onAuth={onAuth} isLoggedIn={isLoggedIn} setPage={setPage} />
 
       <section id="how-it-works" ref={roadmapRef} className="section section-bg-alt relative py-24 md:py-32 overflow-hidden">
         <FloatingIconsBackground />

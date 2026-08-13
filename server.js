@@ -9,6 +9,9 @@ import fs from 'fs';
 import Razorpay from 'razorpay';
 import { createClient } from '@supabase/supabase-js';
 
+// Tester coupon — stored server-side only, never sent to the client
+const TESTER_COUPON = process.env.TESTER_COUPON || 'TESTER2024';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -124,6 +127,26 @@ const razorpay =
         key_secret: process.env.RAZORPAY_KEY_SECRET,
       })
     : null;
+
+// ---------------------------------------------------------------------------
+// Helper: activate a subscription for a user via Supabase service-role admin
+// This runs server-side only — the client never calls updateUser directly.
+// ---------------------------------------------------------------------------
+async function activateSubscription(userId, plan, extraMeta = {}) {
+  if (!supabaseAdmin) throw new Error('Supabase admin client not available.');
+  const expiryDate = new Date();
+  expiryDate.setMonth(expiryDate.getMonth() + plan.durationMonths);
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      is_subscribed: true,
+      subscription_plan: plan.name,
+      subscription_expiry: expiryDate.toISOString(),
+      ...extraMeta,
+    },
+  });
+  if (error) throw error;
+  console.log(`Subscription activated: user=${userId} plan=${plan.name} expiry=${expiryDate.toISOString()}`);
+}
 
 // Create Razorpay Order
 app.post('/create-order', async (req, res) => {
@@ -333,10 +356,11 @@ app.post('/validate-coupon', async (req, res) => {
   return res.json({ success: true });
 });
 
-// Redeem free coupon — activates 3-month free subscription
+// Redeem free coupon — activates 3-month free subscription server-side
 app.post('/redeem-coupon', async (req, res) => {
-  const { email, coupon } = req.body;
+  const { email, coupon, userId } = req.body;
   if (!email || !coupon) return res.status(400).json({ success: false, error: 'Email and coupon required.' });
+  if (!userId) return res.status(400).json({ success: false, error: 'userId required.' });
   const code = coupon.toUpperCase();
   if (!FREE_COUPONS.includes(code)) {
     return res.status(400).json({ success: false, error: 'Invalid coupon code.' });
@@ -356,15 +380,58 @@ app.post('/redeem-coupon', async (req, res) => {
     console.error('Supabase redeem-coupon error:', error);
     return res.status(500).json({ success: false, error: 'Server error redeeming coupon.' });
   }
+  // Activate subscription server-side
+  const freePlan = { name: `3 Months Pro (${code})`, durationMonths: 3 };
+  try {
+    await activateSubscription(userId, freePlan, { coupon_used: code });
+  } catch (activationErr) {
+    console.error('Coupon activation error:', activationErr);
+    return res.status(500).json({ success: false, error: 'Coupon recorded but subscription activation failed. Contact support.' });
+  }
   console.log(`Coupon ${code} redeemed by ${key}`);
   return res.json({ success: true, message: `${code} redeemed — 3 months free subscription activated.` });
 });
 
+// Validate tester coupon — never exposes the code to the client
+app.post('/validate-tester-coupon', (req, res) => {
+  const { coupon } = req.body;
+  if (!coupon) return res.status(400).json({ success: false, error: 'Coupon required.' });
+  if (coupon.toUpperCase() === TESTER_COUPON) {
+    return res.json({ success: true });
+  }
+  return res.status(400).json({ success: false, error: 'Invalid coupon code.' });
+});
+
+// Activate tester subscription — server-side only, requires valid coupon
+app.post('/activate-tester-subscription', async (req, res) => {
+  const { coupon, userId, planId } = req.body;
+  if (!coupon || !userId || !planId) {
+    return res.status(400).json({ success: false, error: 'coupon, userId, and planId are required.' });
+  }
+  if (coupon.toUpperCase() !== TESTER_COUPON) {
+    return res.status(400).json({ success: false, error: 'Invalid tester coupon.' });
+  }
+  const plan = SUBSCRIPTION_PLANS[planId];
+  if (!plan) {
+    return res.status(400).json({ success: false, error: 'Invalid plan ID.' });
+  }
+  try {
+    await activateSubscription(userId, { name: plan.name + ' (Tester)', durationMonths: plan.durationMonths }, { tester_access: true });
+    res.json({ success: true, message: 'Tester subscription activated.' });
+  } catch (err) {
+    console.error('Tester activation error:', err);
+    res.status(500).json({ success: false, error: 'Failed to activate tester subscription.' });
+  }
+});
+
 app.post('/create-subscription-order', async (req, res) => {
-  const { planId } = req.body;
+  const { planId, userId, userEmail } = req.body;
 
   if (!razorpay) {
     return res.status(503).json({ success: false, error: 'Razorpay is not configured on the server.' });
+  }
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'userId is required.' });
   }
 
   const plan = SUBSCRIPTION_PLANS[planId];
@@ -383,6 +450,9 @@ app.post('/create-subscription-order', async (req, res) => {
         planId,
         planName: plan.name,
         durationMonths: String(plan.durationMonths),
+        // Store user identity so webhook can activate without browser
+        userId,
+        userEmail: userEmail || '',
       },
     });
 
@@ -401,17 +471,20 @@ app.post('/create-subscription-order', async (req, res) => {
   }
 });
 
-app.post('/verify-subscription-payment', (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+app.post('/verify-subscription-payment', async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, planId } = req.body;
 
   if (!process.env.RAZORPAY_KEY_SECRET) {
     return res.status(503).json({ success: false, error: 'Razorpay is not configured on the server.' });
   }
-
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
     return res.status(400).json({ success: false, error: 'Missing payment verification fields.' });
   }
+  if (!userId || !planId) {
+    return res.status(400).json({ success: false, error: 'userId and planId are required for subscription activation.' });
+  }
 
+  // 1. Verify Razorpay payment signature
   const expected = crypto
     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -421,8 +494,109 @@ app.post('/verify-subscription-payment', (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid payment signature.' });
   }
 
-  res.json({ success: true });
+  // 2. Activate subscription server-side — client never calls updateUser
+  const plan = SUBSCRIPTION_PLANS[planId];
+  if (!plan) {
+    return res.status(400).json({ success: false, error: 'Unknown plan ID.' });
+  }
+  try {
+    await activateSubscription(userId, plan, {
+      razorpay_payment_id,
+      razorpay_order_id,
+    });
+    res.json({ success: true, message: 'Payment verified and subscription activated.' });
+  } catch (err) {
+    console.error('Subscription activation error after payment:', err);
+    // Payment was valid — activation failed. Log for manual recovery.
+    res.status(500).json({
+      success: false,
+      error: 'Payment verified but subscription activation failed. Contact support with Payment ID: ' + razorpay_payment_id,
+    });
+  }
 });
+
+// ---------------------------------------------------------------------------
+// Razorpay Webhook — fires when a payment is captured by Razorpay
+// This is the fallback activation path: if the browser closes after payment
+// before the frontend can call /verify-subscription-payment, this webhook
+// will activate the subscription automatically.
+//
+// Setup:
+//   1. Set RAZORPAY_WEBHOOK_SECRET in .env (copy from Razorpay Dashboard → Webhooks)
+//   2. Register this URL in Razorpay Dashboard → Webhooks:
+//      https://your-domain.com/razorpay-webhook
+//   3. Select event: payment.captured
+// ---------------------------------------------------------------------------
+app.post(
+  '/razorpay-webhook',
+  express.raw({ type: 'application/json' }), // raw body needed for signature check
+  async (req, res) => {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.warn('RAZORPAY_WEBHOOK_SECRET not set — skipping webhook signature check (INSECURE).');
+    } else {
+      const signature = req.headers['x-razorpay-signature'];
+      const expected = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(req.body)
+        .digest('hex');
+      if (expected !== signature) {
+        console.warn('Razorpay webhook: invalid signature, rejecting.');
+        return res.status(400).json({ error: 'Invalid webhook signature.' });
+      }
+    }
+
+    let event;
+    try {
+      event = JSON.parse(req.body.toString());
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON payload.' });
+    }
+
+    // Only handle payment.captured
+    if (event.event !== 'payment.captured') {
+      return res.json({ received: true, action: 'ignored' });
+    }
+
+    const payment = event.payload?.payment?.entity;
+    if (!payment) {
+      return res.status(400).json({ error: 'Missing payment entity in webhook payload.' });
+    }
+
+    const orderId = payment.order_id;
+    if (!orderId || !razorpay) {
+      return res.json({ received: true, action: 'no-order-or-razorpay' });
+    }
+
+    try {
+      // Fetch the order from Razorpay to get the notes (userId, planId, etc.)
+      const order = await razorpay.orders.fetch(orderId);
+      const { userId, planId } = order.notes || {};
+      if (!userId || !planId) {
+        console.log(`Webhook: order ${orderId} has no userId/planId in notes — skipping activation.`);
+        return res.json({ received: true, action: 'no-user-in-notes' });
+      }
+
+      const plan = SUBSCRIPTION_PLANS[planId];
+      if (!plan) {
+        console.error(`Webhook: unknown planId "${planId}" in order ${orderId}`);
+        return res.json({ received: true, action: 'unknown-plan' });
+      }
+
+      await activateSubscription(userId, plan, {
+        razorpay_payment_id: payment.id,
+        razorpay_order_id: orderId,
+        activated_via: 'webhook',
+      });
+      console.log(`Webhook: subscription activated for user=${userId} via order=${orderId}`);
+      res.json({ received: true, action: 'subscription-activated' });
+    } catch (err) {
+      console.error('Webhook: error activating subscription:', err);
+      // Still return 200 so Razorpay doesn't retry endlessly
+      res.json({ received: true, action: 'error', message: err.message });
+    }
+  }
+);
 
 app.post('/welcome-email', async (req, res) => {
   const { email, fullName } = req.body;
